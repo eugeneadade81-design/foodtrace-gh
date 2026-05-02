@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FoodTrace GH</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div>
+            <h1>FoodTrace GH</h1>
+            <p>Scan it. Trace it. Trust it.</p>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-item active" data-tab="consumer">
+            <span class="label">Consumer scan</span>
+            <span class="meta">Quick safety check</span>
+          </button>
+          <button class="nav-item" data-tab="farmer">
+            <span class="label">Farmer portal</span>
+            <span class="meta">Input logs and withdrawal periods</span>
+          </button>
+          <button class="nav-item" data-tab="manufacturer">
+            <span class="label">Manufacturer</span>
+            <span class="meta">Batch records and QR labels</span>
+          </button>
+          <button class="nav-item" data-tab="regulator">
+            <span class="label">FDA dashboard</span>
+            <span class="meta">Recalls, reports, and analytics</span>
+          </button>
+          <button class="nav-item" data-tab="ai">
+            <span class="label">Safety assistant</span>
+            <span class="meta">Explains results in plain language</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-card">
+          <p class="eyebrow">Active recalls</p>
+          <strong id="recall-count">3 open</strong>
+          <span id="recall-detail">2 drug-related</span>
+        </div>
+
+        <div class="sidebar-card muted">
+          <p class="eyebrow">Sync</p>
+          <strong id="sync-state">Online</strong>
+          <span id="sync-detail">1,204 scans today</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <section class="auth-panel" aria-label="Authentication">
+          <div class="auth-copy">
+            <p class="panel-kicker">Phase 4</p>
+            <h3>Sign in and choose your role</h3>
+            <p>
+              The app uses one account system with role-based access for consumers, farmers,
+              manufacturers, regulators, agents, and admins.
+            </p>
+          </div>
+
+          <div class="auth-form">
+            <label class="field">
+              <span>Email or phone</span>
+              <input id="identity-input" type="text" placeholder="name@example.com or 024..." />
+            </label>
+            <label class="field">
+              <span>Password</span>
+              <input id="password-input" type="password" placeholder="Your password" />
+            </label>
+            <label class="field">
+              <span>OTP</span>
+              <input id="otp-input" type="text" inputmode="numeric" placeholder="6-digit code" />
+            </label>
+            <label class="field">
+              <span>Language</span>
+              <select id="language-select">
+                <option value="en">English</option>
+                <option value="tw">Twi</option>
+                <option value="ha">Hausa</option>
+                <option value="ee">Ewe</option>
+              </select>
+            </label>
+
+            <div class="role-grid" id="role-grid" aria-label="Role selection">
+              <button class="role-chip active" data-role="consumer" type="button">Consumer</button>
+              <button class="role-chip" data-role="farmer" type="button">Farmer</button>
+              <button class="role-chip" data-role="manufacturer" type="button">Manufacturer</button>
+              <button class="role-chip" data-role="regulator" type="button">Regulator</button>
+              <button class="role-chip" data-role="agent" type="button">Agent</button>
+              <button class="role-chip" data-role="admin" type="button">Admin</button>
+            </div>
+
+            <div class="auth-actions">
+              <button class="button primary" id="sign-in-button" type="button">Sign in</button>
+              <button class="button ghost" id="request-otp-button" type="button">Request OTP</button>
+            </div>
+          </div>
+
+          <div class="auth-status" id="auth-status">
+            <strong>Not signed in</strong>
+            <span>Access is limited until a role is selected and verified.</span>
+          </div>
+        </section>
+
+        <header class="topbar">
+          <div>
+            <p class="topbar-kicker">Scanned — Batch FT-2026-00124</p>
+            <h2 id="screen-title">Verified Safe</h2>
+            <p id="screen-subtitle">Tomato Paste · Afram Foods Ltd</p>
+          </div>
+          <div class="status-ring" id="status-ring" aria-hidden="true">
+            <div class="status-dot"></div>
+          </div>
+        </header>
+
+        <section class="content-grid">
+          <section class="panel scan-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Consumer scan</p>
+                <h3>Safety summary</h3>
+              </div>
+              <span class="chip success" id="status-chip">All clear</span>
+            </div>
+
+            <div class="scan-controls">
+              <label class="field field-inline">
+                <span>Batch or QR code</span>
+                <input id="scan-input" type="text" placeholder="Try FT-2026-00124 or BS-0199" />
+              </label>
+              <div class="scan-actions">
+                <button class="button primary" id="scan-button" type="button">Scan product</button>
+                <button class="button ghost" id="lookup-button" type="button">Search code</button>
+              </div>
+              <div class="history-pills" id="history-pills" aria-label="Recent scans">
+                <button class="history-pill active" data-code="FT-2026-00124" type="button">FT-2026-00124</button>
+                <button class="history-pill" data-code="BS-0199" type="button">BS-0199</button>
+                <button class="history-pill" data-code="FT-2026-00488" type="button">FT-2026-00488</button>
+              </div>
+              <p class="scan-note" id="scan-note">
+                Ready to scan. Search a batch code or tap a recent scan.
+              </p>
+            </div>
+
+            <div class="summary-list">
+              <div class="summary-row">
+                <span>Farm origin</span>
+                <strong id="farm-origin">Agyemang Farm, Ashanti</strong>
+              </div>
+              <div class="summary-row">
+                <span>Pesticides</span>
+                <strong id="pesticides">EPA approved</strong>
+              </div>
+              <div class="summary-row">
+                <span>Drug residue</span>
+                <strong id="drug-residue">Clear</strong>
+              </div>
+              <div class="summary-row">
+                <span>Quality checks</span>
+                <strong id="quality-checks">3 / 3 passed</strong>
+              </div>
+              <div class="summary-row">
+                <span>Packaged</span>
+                <strong id="packaged">Apr 22, 2026</strong>
+              </div>
+              <div class="summary-row">
+                <span>Expiry</span>
+                <strong id="expiry">May 2027</strong>
+              </div>
+              <div class="summary-row">
+                <span>Recall status</span>
+                <strong id="recall-status">None</strong>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button class="button danger">Report concern</button>
+              <button class="button ghost">Full chain history</button>
+            </div>
+
+            <div class="alert-banner" id="alert-banner">
+              <div>
+                <p class="alert-title">Recalled product nearby</p>
+                <p class="alert-body">
+                  Palace Beef Sausage (Batch BS-0199) was flagged for a drug residue violation.
+                  Do not consume it.
+                </p>
+              </div>
+              <span class="alert-tag">Alert</span>
+            </div>
+          </section>
+
+          <section class="panel quick-panel">
+            <div class="quick-card scan-card">
+              <p class="panel-kicker">Consumer mode</p>
+              <h3>Scan product</h3>
+              <div class="scan-illustration" aria-hidden="true">
+                <div class="qr-tile">
+                  <span></span><span></span>
+                  <span></span><span class="small"></span>
+                </div>
+              </div>
+              <button class="button primary">Open camera</button>
+            </div>
+
+            <div class="quick-card ai-card">
+              <p class="panel-kicker">FoodTrace AI</p>
+              <h3>Why is this yellow?</h3>
+              <p>
+                Because a pesticide is not fully verified yet, or a regulator review is still pending.
+                The assistant can explain the result in simple language.
+              </p>
+            </div>
+          </section>
+
+          <section class="panel side-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Right now</p>
+                <h3>Live status</h3>
+              </div>
+              <span class="chip warning">Near recall</span>
+            </div>
+
+            <div class="metric-grid">
+              <div class="metric">
+                <span>Scans today</span>
+                <strong>1,204</strong>
+              </div>
+              <div class="metric">
+                <span>Active recalls</span>
+                <strong>3</strong>
+              </div>
+              <div class="metric">
+                <span>Farmers active</span>
+                <strong>428</strong>
+              </div>
+              <div class="metric">
+                <span>Manufacturers</span>
+                <strong>62</strong>
+              </div>
+            </div>
+
+            <div class="timeline">
+              <div class="timeline-item">
+                <span class="dot green"></span>
+                <div>
+                  <strong>Batch verified</strong>
+                  <p>Tomato Paste 400g passed all checks.</p>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <span class="dot yellow"></span>
+                <div>
+                  <strong>Under review</strong>
+                  <p>New drug entry pending FDA review.</p>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <span class="dot red"></span>
+                <div>
+                  <strong>Recall broadcast</strong>
+                  <p>Consumers who scanned the batch were notified.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="food-module" id="food-module" aria-label="Food module">
+          <div class="module-header">
+            <div>
+              <p class="panel-kicker">Food module</p>
+              <h3 id="food-module-title">Farmer dashboard</h3>
+              <p id="food-module-subtitle">
+                Farm registration, crop cycles, input logs, and withdrawal tracking.
+              </p>
+            </div>
+            <span class="chip success" id="food-module-chip">Food traceability</span>
+          </div>
+
+          <div class="module-grid">
+            <section class="module-card" id="food-snapshot-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Farm snapshot</p>
+                  <h3 id="farm-name">Agyemang Farm</h3>
+                </div>
+                <span class="chip warning" id="farm-status">Pending harvest</span>
+              </div>
+
+              <div class="summary-list compact-list">
+                <div class="summary-row">
+                  <span>District</span>
+                  <strong id="farm-district">Ejisu, Ashanti</strong>
+                </div>
+                <div class="summary-row">
+                  <span>Crop type</span>
+                  <strong id="crop-type">Tomato</strong>
+                </div>
+                <div class="summary-row">
+                  <span>Cycle stage</span>
+                  <strong id="cycle-stage">Week 4 of 8</strong>
+                </div>
+                <div class="summary-row">
+                  <span>Market ready</span>
+                  <strong id="market-ready">In 3 days</strong>
+                </div>
+                <div class="summary-row">
+                  <span>Withdrawal check</span>
+                  <strong id="withdrawal-check">Not yet cleared</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Log input</p>
+                  <h3>Record farm activity</h3>
+                </div>
+                <span class="chip" id="input-mode-chip">Offline ready</span>
+              </div>
+
+              <div class="scan-controls">
+                <label class="field field-inline">
+                  <span>Input type</span>
+                  <select id="input-type-select">
+                    <option value="pesticide">Pesticide</option>
+                    <option value="fertilizer">Fertilizer</option>
+                    <option value="seed">Seed</option>
+                    <option value="water">Water</option>
+                  </select>
+                </label>
+                <label class="field field-inline">
+                  <span>Input name</span>
+                  <input id="input-name" type="text" placeholder="Malathion / NPK / Seed packet" />
+                </label>
+                <label class="field field-inline">
+                  <span>Application date</span>
+                  <input id="input-date" type="date" />
+                </label>
+                <label class="field field-inline">
+                  <span>Notes</span>
+                  <input id="input-notes" type="text" placeholder="Optional note" />
+                </label>
+                <div class="scan-actions">
+                  <button class="button primary" id="save-input-button" type="button">Save input</button>
+                  <button class="button ghost" id="withdrawal-button" type="button">Check withdrawal</button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="module-grid slim-grid">
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Crop cycle</p>
+                  <h3 id="cycle-title">Tomato cycle</h3>
+                </div>
+                <span class="chip success" id="cycle-chip">Growing</span>
+              </div>
+              <p class="module-copy" id="cycle-copy">
+                Logs are tracked against this crop cycle. Pesticide entries update the market-ready date.
+              </p>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Food trace status</p>
+                  <h3 id="food-status-title">Current state</h3>
+                </div>
+              </div>
+              <p class="module-copy" id="food-status-copy">
+                Input logging, withdrawal periods, and batch handoff all feed into the same traceability chain.
+              </p>
+            </section>
+          </div>
+        </section>
+
+        <section class="manufacturer-module" id="manufacturer-module" aria-label="Manufacturer module">
+          <div class="module-header">
+            <div>
+              <p class="panel-kicker">Manufacturer module</p>
+              <h3 id="manufacturer-module-title">Batch creation and QR labels</h3>
+              <p id="manufacturer-module-subtitle">
+                Build a batch record from cleared ingredients, then generate a QR label and recall trail.
+              </p>
+            </div>
+            <span class="chip success" id="manufacturer-module-chip">Manufacturing flow</span>
+          </div>
+
+          <div class="module-grid">
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Batch wizard</p>
+                  <h3 id="batch-wizard-title">Create batch</h3>
+                </div>
+                <span class="chip warning" id="batch-wizard-chip">Step 1 of 5</span>
+              </div>
+
+              <div class="scan-controls">
+                <label class="field field-inline">
+                  <span>Product name</span>
+                  <input id="batch-product-name" type="text" placeholder="Tomato paste 400g" />
+                </label>
+                <label class="field field-inline">
+                  <span>Batch number</span>
+                  <input id="batch-number" type="text" placeholder="TP-2026-0412" />
+                </label>
+                <label class="field field-inline">
+                  <span>Ingredient source</span>
+                  <input id="batch-source" type="text" placeholder="Agyemang Farm, Ashanti" />
+                </label>
+                <label class="field field-inline">
+                  <span>Expiry date</span>
+                  <input id="batch-expiry" type="date" />
+                </label>
+                <div class="scan-actions">
+                  <button class="button primary" id="save-batch-button" type="button">Save batch</button>
+                  <button class="button ghost" id="generate-qr-button" type="button">Generate QR</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Batch list</p>
+                  <h3>Recent batches</h3>
+                </div>
+                <span class="chip success" id="batch-count-chip">3 active</span>
+              </div>
+
+              <div class="batch-list" id="batch-list">
+                <article class="batch-item">
+                  <strong>Tomato Paste 400g</strong>
+                  <span>TP-2026-0341 · Active</span>
+                </article>
+                <article class="batch-item warning">
+                  <strong>Palace Beef Sausage</strong>
+                  <span>BS-2026-0199 · Recalled</span>
+                </article>
+                <article class="batch-item">
+                  <strong>Mango Juice</strong>
+                  <span>MJ-2026-0048 · Under review</span>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <div class="module-grid slim-grid">
+            <section class="module-card qr-preview-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">QR label</p>
+                  <h3 id="qr-label-title">Ready to generate</h3>
+                </div>
+              </div>
+
+              <div class="qr-preview" aria-hidden="true">
+                <div class="qr-shape"></div>
+              </div>
+              <p class="module-copy" id="qr-label-copy">
+                When the batch record is complete, the QR label becomes available for print and scan.
+              </p>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Recall controls</p>
+                  <h3 id="recall-title">Recall center</h3>
+                </div>
+                <span class="chip" id="recall-chip">Monitoring</span>
+              </div>
+              <p class="module-copy" id="recall-copy">
+                Manufacturers can flag a batch immediately, and every scan of the QR code will reflect the new status.
+              </p>
+            </section>
+          </div>
+        </section>
+
+        <section class="regulator-module" id="regulator-module" aria-label="Regulator module">
+          <div class="module-header">
+            <div>
+              <p class="panel-kicker">Regulator module</p>
+              <h3 id="regulator-module-title">FDA review dashboard</h3>
+              <p id="regulator-module-subtitle">
+                Track recalls, review reports, and see the food traceability chain in one place.
+              </p>
+            </div>
+            <span class="chip warning" id="regulator-module-chip">Review mode</span>
+          </div>
+
+          <div class="module-grid">
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Overview</p>
+                  <h3 id="regulator-overview-title">Compliance status</h3>
+                </div>
+                <span class="chip success" id="regulator-overview-chip">Live</span>
+              </div>
+
+              <div class="metric-grid regulator-metrics">
+                <div class="metric">
+                  <span>Farms</span>
+                  <strong id="reg-farms">428</strong>
+                </div>
+                <div class="metric">
+                  <span>Manufacturers</span>
+                  <strong id="reg-manufacturers">62</strong>
+                </div>
+                <div class="metric">
+                  <span>Active recalls</span>
+                  <strong id="reg-recalls">3</strong>
+                </div>
+                <div class="metric">
+                  <span>Reports</span>
+                  <strong id="reg-reports">14</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Review queue</p>
+                  <h3 id="reg-queue-title">Consumer reports</h3>
+                </div>
+                <span class="chip" id="reg-queue-chip">Pending</span>
+              </div>
+
+              <div class="reg-list" id="reg-list">
+                <article class="batch-item warning">
+                  <strong>Palace Beef Sausage</strong>
+                  <span>2 reports · Drug residue violation</span>
+                </article>
+                <article class="batch-item">
+                  <strong>Tomato Paste 400g</strong>
+                  <span>1 report · Under review</span>
+                </article>
+                <article class="batch-item">
+                  <strong>Mango Juice</strong>
+                  <span>0 reports · Monitoring</span>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <div class="module-grid slim-grid">
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Recall trail</p>
+                  <h3 id="reg-recall-title">Broadcast log</h3>
+                </div>
+                <span class="chip warning" id="reg-recall-chip">3 open</span>
+              </div>
+              <p class="module-copy" id="reg-recall-copy">
+                Every recall update is reflected in the product scan result and the review trail.
+              </p>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Analytics</p>
+                  <h3 id="reg-analytics-title">Regional view</h3>
+                </div>
+              </div>
+              <p class="module-copy" id="reg-analytics-copy">
+                Later, this panel can expand into charts and heatmaps for compliance and recall trends.
+              </p>
+            </section>
+          </div>
+        </section>
+
+        <section class="assistant-module" id="assistant-module" aria-label="Safety assistant module">
+          <div class="module-header">
+            <div>
+              <p class="panel-kicker">Safety assistant</p>
+              <h3 id="assistant-module-title">Ask FoodTrace AI</h3>
+              <p id="assistant-module-subtitle">
+                Get plain-language explanations, report summaries, ingredient ideas, and sourcing guidance.
+              </p>
+            </div>
+            <span class="chip success" id="assistant-module-chip">Assistant mode</span>
+          </div>
+
+          <div class="module-grid">
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Ask a question</p>
+                  <h3>What do you want to know?</h3>
+                </div>
+                <span class="chip warning" id="assistant-source-chip">AI support</span>
+              </div>
+
+              <div class="scan-controls">
+                <label class="field field-inline">
+                  <span>Question</span>
+                  <input
+                    id="assistant-input"
+                    type="text"
+                    placeholder="Why is this batch yellow?"
+                  />
+                </label>
+                <div class="scan-actions">
+                  <button class="button primary" id="ask-ai-button" type="button">Ask AI</button>
+                  <button class="button ghost" id="ai-example-button" type="button">Use example</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">AI answer</p>
+                  <h3 id="assistant-answer-title">Ready to help</h3>
+                </div>
+              </div>
+              <p class="module-copy" id="assistant-answer-copy">
+                Ask about a scan result, a withdrawal period, a recall, ingredients for a meal, or where to look for food items.
+              </p>
+            </section>
+          </div>
+
+          <div class="module-grid slim-grid">
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Suggested prompts</p>
+                  <h3>Quick help</h3>
+                </div>
+              </div>
+              <div class="batch-list" id="assistant-prompts">
+                <article class="batch-item">
+                  <strong>Why is this yellow?</strong>
+                  <span>Explains caution states in plain language.</span>
+                </article>
+                <article class="batch-item">
+                  <strong>What does withdrawal mean?</strong>
+                  <span>Gives a simple answer for farmers.</span>
+                </article>
+                <article class="batch-item">
+                  <strong>Summarize this recall.</strong>
+                  <span>Turns a recall into a short summary.</span>
+                </article>
+                <article class="batch-item">
+                  <strong>What ingredients do I need?</strong>
+                  <span>Suggests common ingredients for a meal or product.</span>
+                </article>
+                <article class="batch-item">
+                  <strong>Where can I source it?</strong>
+                  <span>Gives general places to look for ingredients and food items.</span>
+                </article>
+              </div>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">AI rules</p>
+                  <h3>Safe assistant use</h3>
+                </div>
+              </div>
+              <p class="module-copy" id="assistant-rules-copy">
+                AI can explain, summarize, and guide. It must never replace the rules engine or regulator review.
+              </p>
+            </section>
+          </div>
+        </section>
+
+        <section class="connectivity-module" id="connectivity-module" aria-label="Offline and SMS support">
+          <div class="module-header">
+            <div>
+              <p class="panel-kicker">Offline and SMS</p>
+              <h3 id="connectivity-title">Field support</h3>
+              <p id="connectivity-subtitle">
+                Keep logs moving when internet is weak and send short status alerts by SMS.
+              </p>
+            </div>
+            <span class="chip success" id="connectivity-chip">Online</span>
+          </div>
+
+          <div class="module-grid">
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Connection state</p>
+                  <h3 id="connectivity-state-title">Ready to sync</h3>
+                </div>
+                <span class="chip success" id="connectivity-state-chip">Live</span>
+              </div>
+
+              <p class="module-copy" id="connectivity-state-copy">
+                When the connection drops, new actions stay on the device and sync later.
+              </p>
+
+              <div class="metric-grid connectivity-metrics">
+                <div class="metric">
+                  <span>Queued items</span>
+                  <strong id="queue-count">0</strong>
+                </div>
+                <div class="metric">
+                  <span>SMS alerts</span>
+                  <strong id="sms-count">0 sent</strong>
+                </div>
+              </div>
+
+              <div class="scan-actions">
+                <button class="button primary" id="toggle-connectivity-button" type="button">Go offline</button>
+                <button class="button ghost" id="queue-demo-button" type="button">Add offline item</button>
+              </div>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">SMS relay</p>
+                  <h3 id="sms-title">Alert preview</h3>
+                </div>
+                <span class="chip warning" id="sms-chip">Ready</span>
+              </div>
+
+              <p class="module-copy" id="sms-copy">
+                A recall message can be shortened into a simple SMS for farmers, retailers, and consumers.
+              </p>
+
+              <div class="batch-list" id="sms-template-list">
+                <article class="batch-item">
+                  <strong>Recall alert</strong>
+                  <span>Product code, reason, and next action.</span>
+                </article>
+                <article class="batch-item">
+                  <strong>Offline sync note</strong>
+                  <span>Lets users know that the device is storing actions locally.</span>
+                </article>
+              </div>
+
+              <div class="scan-actions">
+                <button class="button primary" id="send-sms-button" type="button">Send SMS preview</button>
+                <button class="button ghost" id="sync-now-button" type="button">Sync now</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="module-grid slim-grid">
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Offline queue</p>
+                  <h3 id="offline-queue-title">Saved locally</h3>
+                </div>
+                <span class="chip" id="offline-queue-chip">Empty</span>
+              </div>
+              <div class="batch-list" id="offline-queue-list">
+                <article class="batch-item">
+                  <strong>No queued items</strong>
+                  <span>Actions added while offline will appear here.</span>
+                </article>
+              </div>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Last SMS</p>
+                  <h3 id="last-sms-title">No message sent yet</h3>
+                </div>
+              </div>
+              <p class="module-copy" id="last-sms-copy">
+                Use the preview button to test the wording before a real broadcast flow is built.
+              </p>
+            </section>
+          </div>
+        </section>
+
+        <section class="audit-module" id="audit-module" aria-label="Audit trail">
+          <div class="module-header">
+            <div>
+              <p class="panel-kicker">Audit trail</p>
+              <h3 id="audit-title">Activity history</h3>
+              <p id="audit-subtitle">
+                The app keeps a visible record of scans, saves, syncs, and review actions.
+              </p>
+            </div>
+            <span class="chip success" id="audit-chip">Tracked</span>
+          </div>
+
+          <div class="module-grid">
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Recent actions</p>
+                  <h3>What happened last</h3>
+                </div>
+                <span class="chip warning" id="audit-count-chip">0 events</span>
+              </div>
+
+              <div class="batch-list" id="audit-list">
+                <article class="batch-item">
+                  <strong>No activity yet</strong>
+                  <span>Important actions will appear here as they happen.</span>
+                </article>
+              </div>
+            </section>
+
+            <section class="module-card">
+              <div class="panel-header compact">
+                <div>
+                  <p class="panel-kicker">Why it matters</p>
+                  <h3>Trust record</h3>
+                </div>
+              </div>
+              <p class="module-copy" id="audit-copy">
+                Every scan, save, or sync can be audited later to support traceability and regulatory review.
+              </p>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js?rev=20260430"></script>
+  </body>
+</html>

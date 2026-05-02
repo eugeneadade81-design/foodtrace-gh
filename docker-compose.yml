@@ -1,0 +1,52 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://foodtrace:foodtrace@postgres:5432/foodtrace_gh
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: foodtrace_gh
+      POSTGRES_USER: foodtrace
+      POSTGRES_PASSWORD: foodtrace
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foodtrace -d foodtrace_gh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

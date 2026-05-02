@@ -1,0 +1,30 @@
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY backend/package.json backend/package.json
+COPY shared/package.json shared/package.json
+COPY web/package.json web/package.json
+COPY mobile/package.json mobile/package.json
+
+RUN npm ci --legacy-peer-deps
+
+COPY . .
+RUN npm run build --workspace backend
+
+FROM node:20-alpine AS runtime
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY --from=build /app/package.json /app/package-lock.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/backend/package.json ./backend/package.json
+COPY --from=build /app/backend/dist ./backend/dist
+COPY --from=build /app/shared ./shared
+
+EXPOSE 3000
+
+CMD ["node", "backend/dist/app.js"]
+

@@ -1,0 +1,21 @@
+{
+  "name": "foodtrace-gh",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "backend",
+    "mobile",
+    "web",
+    "shared"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:web": "npm run dev --workspace web",
+    "dev:mobile": "npm run start --workspace mobile",
+    "db:migrate": "node scripts/migrations/run_migrations.cjs",
+    "db:seed": "node scripts/seed/seed_dev.cjs",
+    "build": "npm run build --workspace backend",
+    "build:web": "npm run build --workspace web",
+    "typecheck": "npm run typecheck --workspaces"
+  }
+}

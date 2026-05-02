@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+coverage/
+.expo/
+.expo-shared/
+android/
+ios/
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+Thumbs.db
+Desktop.ini
