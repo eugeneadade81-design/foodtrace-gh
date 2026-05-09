@@ -174,6 +174,11 @@ router.get("/violations", async (_req, res) => {
   return res.json({ alerts: dashboard.alerts });
 });
 
+router.get("/reports", async (_req, res) => {
+  const dashboard = await loadDashboard();
+  return res.json({ reports: dashboard.reports });
+});
+
 router.patch("/reports", async (req: AuthenticatedRequest, res) => {
   const parsed = reviewReportSchema.safeParse(req.body);
   if (!parsed.success) {

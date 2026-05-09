@@ -213,6 +213,8 @@ function buildDrugScanResult(row: Record<string, unknown>): DrugScanResult {
   return {
     codeString: String(row.code_string),
     status,
+    statusLabel:
+      status === "safe" ? "GREEN" : status === "recalled" ? "RED" : status === "caution" ? "YELLOW" : "NOT_FOUND",
     title: recalled ? "Recalled drug" : "Verified drug",
     summary: recalled
       ? "This drug batch is recalled. Do not dispense."
@@ -222,8 +224,18 @@ function buildDrugScanResult(row: Record<string, unknown>): DrugScanResult {
     drugName: row.name ? String(row.name) : undefined,
     batchNumber: row.batch_number ? String(row.batch_number) : undefined,
     manufacturerName: row.manufacturer_name ? String(row.manufacturer_name) : undefined,
-    manufactureDate: row.manufacture_date ? String(row.manufacture_date) : undefined,
-    expiryDate: row.expiry_date ? String(row.expiry_date) : undefined,
+    manufactureDate:
+      row.manufacture_date && typeof (row.manufacture_date as any).toISOString === "function"
+        ? (row.manufacture_date as any).toISOString().slice(0, 10)
+        : row.manufacture_date
+          ? String(row.manufacture_date).slice(0, 10)
+          : undefined,
+    expiryDate:
+      row.expiry_date && typeof (row.expiry_date as any).toISOString === "function"
+        ? (row.expiry_date as any).toISOString().slice(0, 10)
+        : row.expiry_date
+          ? String(row.expiry_date).slice(0, 10)
+          : undefined,
     quantityRemaining: row.quantity_remaining !== undefined ? Number(row.quantity_remaining) : undefined,
     fdaApprovalStatus: row.fda_approval_status ? String(row.fda_approval_status) : undefined,
     recallStatus: row.recall_status ? String(row.recall_status) : undefined,
@@ -367,7 +379,7 @@ router.post("/drugs", async (req: AuthenticatedRequest, res) => {
   return res.status(201).json({ drug: inserted.rows[0] });
 });
 
-router.post("/batches", async (req: AuthenticatedRequest, res) => {
+async function createDrugBatch(req: AuthenticatedRequest, res: import("express").Response) {
   const parsed = createDrugBatchSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -437,7 +449,10 @@ router.post("/batches", async (req: AuthenticatedRequest, res) => {
   };
 
   return res.status(201).json(response);
-});
+}
+
+router.post("/batches", createDrugBatch);
+router.post("/drug-batches", createDrugBatch);
 
 router.post("/recalls", async (req: AuthenticatedRequest, res) => {
   const parsed = createDrugRecallSchema.safeParse(req.body);

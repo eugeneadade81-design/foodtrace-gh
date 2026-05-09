@@ -1,9 +1,30 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Client } from "pg";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
+import fsSync from "node:fs";
 
 async function run() {
-  const migrationsDir = path.resolve(__dirname);
+  // Load repo-root .env even when running from `scripts/migrations`.
+  {
+    let dir = process.cwd();
+    let loaded = false;
+    for (let i = 0; i < 8; i++) {
+      const envPath = path.join(dir, ".env");
+      if (fsSync.existsSync(envPath)) {
+        dotenv.config({ path: envPath });
+        loaded = true;
+        break;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    if (!loaded) dotenv.config();
+  }
+
+  const migrationsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
   const files = (await fs.readdir(migrationsDir))
     .filter((file) => file.endsWith(".sql"))
     .sort();

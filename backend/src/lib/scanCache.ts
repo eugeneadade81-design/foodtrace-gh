@@ -7,6 +7,7 @@ type CacheEntry = {
 
 const memoryCache = new Map<string, CacheEntry>();
 let redisClient: Redis | null = null;
+let redisWarningLogged = false;
 
 function getRedisClient() {
   if (!process.env.REDIS_URL) {
@@ -21,7 +22,10 @@ function getRedisClient() {
     });
 
     redisClient.on("error", () => {
-      // Redis is optional in local development; fall back to memory cache.
+      if (!redisWarningLogged) {
+        console.warn("Redis is unavailable; using in-memory scan cache fallback.");
+        redisWarningLogged = true;
+      }
     });
   }
 
@@ -83,4 +87,25 @@ export async function setCachedJson(key: string, value: unknown, ttlSeconds: num
   }
 
   await writeMemoryCache(key, payload, ttlSeconds);
+}
+
+export async function checkRedisConnection() {
+  const redis = getRedisClient();
+  if (!redis) {
+    return "memory_fallback" as const;
+  }
+
+  try {
+    if (redis.status === "wait") {
+      await redis.connect();
+    }
+    await redis.ping();
+    return "connected" as const;
+  } catch (error) {
+    if (!redisWarningLogged) {
+      console.warn("Redis health check failed; using in-memory scan cache fallback.", error instanceof Error ? error.message : error);
+      redisWarningLogged = true;
+    }
+    return "memory_fallback" as const;
+  }
 }

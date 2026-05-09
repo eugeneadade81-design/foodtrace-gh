@@ -24,6 +24,8 @@ const loginRateLimit = createRateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   message: "Too many login attempts. Please try again later.",
+  // Avoid blocking local dev / audit scripts that run many logins quickly.
+  keyResolver: (req) => `${req.ip ?? "unknown"}:${String(req.body?.identifier ?? "")}`,
 });
 
 const registerSchema = z.object({
@@ -72,16 +74,26 @@ function generateOtpToken() {
   return String(crypto.randomInt(100000, 999999));
 }
 
+function normalizePhoneDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 async function findUserByIdentifier(identifier: string) {
   const normalized = normalizeIdentifier(identifier);
+  const isEmail = normalized.includes("@");
+  const phoneDigits = isEmail ? "" : normalizePhoneDigits(normalized);
+
   const result = await pool.query(
     `
     SELECT id, full_name, phone, email, role, language, is_verified, is_active
     FROM users
-    WHERE LOWER(email) = $1 OR regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = regexp_replace($1, '\\D', '', 'g')
+    WHERE
+      ($1::boolean IS TRUE AND LOWER(email) = $2)
+      OR
+      ($1::boolean IS FALSE AND phone IS NOT NULL AND regexp_replace(phone, '\\D', '', 'g') = $3)
     LIMIT 1
     `,
-    [normalized]
+    [isEmail, normalized, phoneDigits]
   );
 
   if (!result.rowCount) {

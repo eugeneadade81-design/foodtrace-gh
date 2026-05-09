@@ -1,157 +1,154 @@
 # FoodTrace GH
 
-FoodTrace GH is a Ghana-focused food and drug traceability platform for consumers, farmers, manufacturers, pharmacists, and regulators.
+## Scan It. Trace It. Trust It.
 
-It is designed to help people:
-- scan product safety quickly
-- log farm inputs and monitor withdrawal periods
-- create batch records and QR codes
-- manage drug and food recalls
-- review consumer reports and compliance issues
-- support feature-phone access through USSD and SMS fallback
+FoodTrace GH is a Ghana-focused food and medicine traceability platform for consumers, farmers, manufacturers, pharmacists, and FDA regulators. It helps people verify product safety from a QR code, gives farmers and manufacturers a practical way to log traceability data, and gives regulators a faster view of recalls, consumer reports, and high-risk products across districts.
+
+## Key Features
+
+- Food traceability from farm input to packaged product.
+- Drug traceability for pharmacy batches, FDA status, recalls, and prescription flags.
+- QR scanning on mobile and web, with typed fallback for damaged labels.
+- Recall workflows for manufacturers, pharmacists, and regulators.
+- Farmer portal for farms, crop cycles, pesticide logs, and safe harvest timing.
+- FDA dashboard with compliance metrics, alerts, reports, and emergency recall actions.
+- USSD and SMS fallback for feature-phone users.
+- Multilingual audio summaries for scan results.
 
 ## Tech Stack
 
-- Backend: Node.js, Express, PostgreSQL, Redis
-- Web: React, Vite
-- Mobile: React Native, Expo
-- Messaging: Africa's Talking
-- Audio: Google Text-to-Speech with Expo Speech fallback
-- Storage: PostgreSQL + local uploads
+| Layer | Technology |
+| --- | --- |
+| Backend | Node.js, Express |
+| Mobile | React Native, Expo |
+| Web | React, Vite |
+| Database | PostgreSQL |
+| Cache | Redis |
+| SMS | Africa's Talking |
+| Audio | Google Text-to-Speech, Expo Speech fallback |
 
-## What is in the build
+## Local Setup
 
-- Authentication and roles
-- Consumer QR scan and report submission
-- Farmer portal
-- Manufacturer portal
-- Drug / pharmacy module
-- Regulator dashboard
-- Mobile consumer app
-- Web portals
-- USSD and SMS fallback
-- Audio safety summaries
-- Docker and CI/CD prep
+1. Clone the repo.
 
-## Module Overview
-
-1. **Auth and roles** - sign in, register, OTP, JWT, and role-based access for all user types.
-2. **Consumer scanner** - QR lookup for food and drug products with safe, caution, and recalled results.
-3. **Farmer portal** - farm registration, crop cycles, input logging, withdrawal tracking, and offline sync.
-4. **Manufacturer portal** - batch creation, QR generation, recall handling, and compliance records.
-5. **Drug / pharmacy module** - pharmacy registration, drug records, batch logging, QR generation, and recalls.
-6. **Regulator dashboard** - compliance overview, alerts, report review, analytics, and emergency recall actions.
-7. **Mobile app** - consumer-friendly mobile screens with local scan history and audio summaries.
-8. **Web portals** - role-protected farmer, manufacturer, regulator, and consumer web views.
-9. **USSD and SMS** - feature-phone access for safety checks and pesticide logging without a smartphone.
-
-## Screenshot
-
-![FoodTrace GH prototype screenshot](./docs/images/foodtrace-gh-prototype.png)
-
-## Repository Layout
-
-```text
-foodtrace-gh/
-  backend/
-  mobile/
-  web/
-  shared/
-  scripts/
-  docs/
-```
-
-## Local Development
-
-1. Clone the repository.
-2. Install dependencies:
    ```bash
-   npm install --legacy-peer-deps
+   git clone https://github.com/eugeneadade81-design/foodtrace-gh.git
+   cd foodtrace-gh
    ```
-3. Copy the environment file:
+
+2. Copy `.env.example` to `.env` and fill in your local values.
+
    ```bash
    copy .env.example .env
    ```
-4. Update `.env` with your local database, Redis, and API credentials.
-5. Run database migrations:
+
+3. Install dependencies in the root folder.
+
+   ```bash
+   npm install
+   ```
+
+4. Run database migrations.
+
    ```bash
    npm run db:migrate
    ```
-6. Seed development data:
+
+5. Seed demo data.
+
    ```bash
    npm run db:seed
    ```
-7. Start the backend:
+
+6. Start the backend.
+
    ```bash
-   npm run dev:backend
-   ```
-8. Start the web portal:
-   ```bash
-   npm run dev:web
-   ```
-9. Start the mobile app:
-   ```bash
-   npm run dev:mobile
+   cd backend
+   npm run dev
    ```
 
-## Docker
+7. Start the mobile app.
 
-You can run the backend with PostgreSQL and Redis using Docker:
+   ```bash
+   cd mobile
+   npx expo start
+   ```
 
-```bash
-docker compose up --build
-```
+8. Start the web app.
 
-The backend container listens on port `3000`.
+   ```bash
+   cd web
+   npm run dev
+   ```
 
-## Environment
+Default local URLs:
 
-See [`.env.example`](./.env.example) for the full list of environment variables, including:
-- PostgreSQL connection
-- Redis connection
-- JWT secret
-- AWS S3 settings
-- Google Text-to-Speech
-- Africa's Talking
-- frontend and mobile origins
+- Backend: `http://localhost:3000`
+- API base: `http://localhost:3000/api`
+- Web: `http://localhost:5173` or `http://127.0.0.1:5173`
+- Health check: `http://localhost:3000/health`
 
-## API Base URL
+## Demo Accounts
 
-Default local API base:
+All seeded accounts use the password `Password123!`.
 
-```text
-http://localhost:3000/api
-```
+| Role | Email |
+| --- | --- |
+| Consumer | `consumer@foodtrace.gh` |
+| Farmer | `kwame.asante@foodtrace.gh` |
+| Manufacturer | `accra.foods@foodtrace.gh` |
+| Pharmacist | `kumasi.pharmacy@foodtrace.gh` |
+| Regulator | `regulator@foodtrace.gh` |
 
-## Postman Collection
+Useful demo QR codes:
 
-Import the collection at:
+| Flow | Code | Expected result |
+| --- | --- | --- |
+| Safe food | `FT-QR-1001` | Accra Foods Tomato Paste 400g |
+| Safe beverage | `FT-QR-2002` | GoldCoast Sobolo Drink 500ml |
+| Recalled food | `FT-QR-4004` | Recalled Sobolo batch |
+| OTC drug | `DR-QR-1001` | Paracetamol 500mg |
+| Prescription drug | `DR-QR-2002` | Artesunate 50mg |
+| Banned/recalled drug | `DR-QR-4004` | Fake Chloroquine test batch |
 
-```text
-docs/FoodTrace.postman_collection.json
-```
+## API Endpoints
 
-It includes example requests for:
-- auth
-- farmer workflows
-- manufacturer workflows
-- consumer scan and reports
-- pharmacy workflows
-- regulator workflows
-- USSD and SMS endpoints
+| Area | Endpoint |
+| --- | --- |
+| Health | `GET /health` |
+| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me` |
+| Food scan | `GET /api/scan/:code` |
+| Consumer reports | `POST /api/scan/:code/report` |
+| Farmer | `GET /api/food/dashboard`, `POST /api/food/farms`, `POST /api/food/crop-cycles`, `POST /api/food/input-logs` |
+| Manufacturer | `GET /api/manufacturer/dashboard`, `POST /api/manufacturer/profile`, `POST /api/manufacturer/batches`, `POST /api/manufacturer/recalls` |
+| Drug scan | `GET /api/drug/scan/:code`, `GET /api/drugs/scan/:code` |
+| Pharmacy | `GET /api/pharmacy/dashboard`, `POST /api/pharmacy/register`, `POST /api/pharmacy/drugs`, `POST /api/pharmacy/drug-batches` |
+| Regulator | `GET /api/regulator/dashboard`, `PATCH /api/regulator/reports/:id`, `POST /api/regulator/recalls` |
+| Audio | `POST /api/audio/speech` |
+| Assistant | `POST /api/assistant/query` |
+| USSD/SMS | `POST /api/ussd`, `POST /api/sms` |
 
-## Project Docs
+## Documentation
 
-- [Master Spec](./MASTER_SPEC.md)
+- [Demo Script](./docs/DEMO_SCRIPT.md)
 - [Architecture](./ARCHITECTURE.md)
 - [Data Model](./DATA_MODEL.md)
 - [API Contract](./API_CONTRACT.md)
-- [Contributing](./CONTRIBUTING.md)
+- [Postman Collection](./docs/FoodTrace.postman_collection.json)
+- [Security](./SECURITY.md)
 
-## Acknowledgement
+## Team
 
-CodeQuest 2026, Group 94, KNUST
+Group 94, KNUST, CodeQuest 2026.
+
+Team members:
+
+- Eugene Adade
+- Team Member 2
+- Team Member 3
+- Team Member 4
+- Team Member 5
 
 ## License
 
-Released under the MIT License. See [LICENSE](./LICENSE).
+MIT. See [LICENSE](./LICENSE).

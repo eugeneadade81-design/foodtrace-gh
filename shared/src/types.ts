@@ -72,8 +72,11 @@ export interface ProductScanRequest {
 export interface ProductScanResult {
   codeString: string;
   status: ProductScanStatus;
+  statusLabel?: "GREEN" | "YELLOW" | "RED" | "NOT_FOUND";
   title: string;
   summary: string;
+  productName?: string;
+  farmOrigin?: string;
   batchNumber?: string;
   manufacturerName?: string;
   packagingDate?: string;
@@ -273,6 +276,8 @@ export interface ManufacturerBatchSummary {
   id: string;
   manufacturerId: string;
   batchNumber: string;
+  productName?: string | null;
+  farmOrigin?: string | null;
   packagingDate: string;
   expiryDate: string;
   recallStatus: "active" | "recalled" | "under_investigation" | "expired";
@@ -309,6 +314,8 @@ export interface CreateManufacturerProfileRequest {
 
 export interface CreateProductBatchRequest {
   batchNumber: string;
+  productName?: string | null;
+  farmOrigin?: string | null;
   ingredientSources?: unknown;
   processingSteps?: unknown;
   qualityChecks?: unknown;
@@ -322,6 +329,7 @@ export interface CreateProductBatchResponse {
     id: string;
     codeString: string;
     status: "active" | "recalled" | "invalidated" | "under_investigation";
+    url?: string | null;
   };
 }
 
@@ -508,6 +516,7 @@ export interface CreateDrugRecallRequest {
 export interface DrugScanResult {
   codeString: string;
   status: ProductScanStatus;
+  statusLabel?: "GREEN" | "YELLOW" | "RED" | "NOT_FOUND";
   title: string;
   summary: string;
   drugName?: string;

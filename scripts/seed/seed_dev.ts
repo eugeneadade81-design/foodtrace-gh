@@ -1,4 +1,25 @@
 import { Client } from "pg";
+import dotenv from "dotenv";
+import fs from "node:fs";
+import path from "node:path";
+
+// Load repo-root .env even when running from `scripts/seed`.
+{
+  let dir = process.cwd();
+  let loaded = false;
+  for (let i = 0; i < 8; i++) {
+    const envPath = path.join(dir, ".env");
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
+      loaded = true;
+      break;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  if (!loaded) dotenv.config();
+}
 
 const client = new Client({ connectionString: process.env.DATABASE_URL });
 
@@ -8,58 +29,79 @@ async function run() {
   await client.connect();
 
   try {
+    const farmerData = [
+      {
+        fullName: "Kwame Asante",
+        phone: "0240000011",
+        email: "kwame.asante@foodtrace.gh",
+        farm: { name: "Kwame Asante Farm", district: "Kumasi", region: "Ashanti", cropTypes: ["tomato", "pepper"] },
+      },
+      {
+        fullName: "Abena Mensah",
+        phone: "0240000012",
+        email: "abena.mensah@foodtrace.gh",
+        farm: { name: "Abena Mensah Farm", district: "Sunyani", region: "Brong-Ahafo", cropTypes: ["maize", "cassava"] },
+      },
+      {
+        fullName: "Ibrahim Alhassan",
+        phone: "0240000013",
+        email: "ibrahim.alhassan@foodtrace.gh",
+        farm: { name: "Ibrahim Alhassan Farm", district: "Tamale", region: "Northern", cropTypes: ["yam", "millet"] },
+      },
+    ];
+
     const farmers = await Promise.all(
-      Array.from({ length: 3 }).map(async (_, index) => {
+      farmerData.map(async (farmer) => {
         const user = await client.query(
           `INSERT INTO users (full_name, phone, email, password_hash, role, is_verified, is_active)
            VALUES ($1, $2, $3, $4, 'farmer', true, true)
            RETURNING id`,
-          [
-            `Farmer ${index + 1}`,
-            `02400000${index + 1}`,
-            `farmer${index + 1}@foodtrace.gh`,
-            passwordHash,
-          ]
+          [farmer.fullName, farmer.phone, farmer.email, passwordHash]
         );
-        return user.rows[0].id;
+        await client.query(
+          `INSERT INTO farms (owner_id, name, district, region, crop_types, verification_status, badge_status)
+           VALUES ($1, $2, $3, $4, $5, 'verified', 'certified')`,
+          [user.rows[0].id, farmer.farm.name, farmer.farm.district, farmer.farm.region, farmer.farm.cropTypes]
+        );
+        return { userId: user.rows[0].id, farm: farmer.farm };
       })
     );
 
+    const manufacturerData = [
+      { fullName: "Accra Foods Admin", phone: "0260000011", email: "accra.foods@foodtrace.gh", companyName: "Accra Foods Ltd", fda: "FDA/GH/2024/001", sector: "packaged foods" },
+      { fullName: "GoldCoast Naturals Admin", phone: "0260000012", email: "goldcoast.naturals@foodtrace.gh", companyName: "GoldCoast Naturals", fda: "FDA/GH/2024/002", sector: "beverages" },
+    ];
+
     const manufacturers = await Promise.all(
-      Array.from({ length: 2 }).map(async (_, index) => {
+      manufacturerData.map(async (manufacturerDataItem) => {
         const user = await client.query(
           `INSERT INTO users (full_name, phone, email, password_hash, role, is_verified, is_active)
            VALUES ($1, $2, $3, $4, 'manufacturer', true, true)
            RETURNING id`,
-          [
-            `Manufacturer ${index + 1}`,
-            `02600000${index + 1}`,
-            `manufacturer${index + 1}@foodtrace.gh`,
-            passwordHash,
-          ]
+          [manufacturerDataItem.fullName, manufacturerDataItem.phone, manufacturerDataItem.email, passwordHash]
         );
         const manufacturer = await client.query(
           `INSERT INTO manufacturers (user_id, company_name, fda_registration_number, sector, is_verified, subscription_tier)
            VALUES ($1, $2, $3, $4, true, 'small')
            RETURNING id`,
-          [user.rows[0].id, `FoodTrace Manufacturer ${index + 1}`, `FDA-${index + 1}00${index + 1}`, "food"]
+          [user.rows[0].id, manufacturerDataItem.companyName, manufacturerDataItem.fda, manufacturerDataItem.sector]
         );
         return { userId: user.rows[0].id, manufacturerId: manufacturer.rows[0].id };
       })
     );
 
+    const pharmacyData = [
+      { fullName: "Kumasi Central Pharmacist", phone: "0270000011", email: "kumasi.pharmacy@foodtrace.gh", pharmacy: { businessName: "Kumasi Central Pharmacy", gpcNumber: "GPC/2024/0234", district: "Kumasi", region: "Ashanti" } },
+      { fullName: "Accra Health Pharmacist", phone: "0270000012", email: "accra.pharmacy@foodtrace.gh", pharmacy: { businessName: "Accra Health Pharmacy", gpcNumber: "GPC/2024/0456", district: "Accra", region: "Greater Accra" } },
+    ];
+
     const pharmacies = await Promise.all(
-      Array.from({ length: 2 }).map(async (_, index) => {
+      pharmacyData.map(async (pharmacyDataItem) => {
         const user = await client.query(
           `INSERT INTO users (full_name, phone, email, password_hash, role, is_verified, is_active)
            VALUES ($1, $2, $3, $4, 'pharmacist', true, true)
            RETURNING id`,
-          [
-            `Pharmacist ${index + 1}`,
-            `02700000${index + 1}`,
-            `pharmacist${index + 1}@foodtrace.gh`,
-            passwordHash,
-          ]
+          [pharmacyDataItem.fullName, pharmacyDataItem.phone, pharmacyDataItem.email, passwordHash]
         );
         const pharmacy = await client.query(
           `INSERT INTO pharmacies (user_id, business_name, ghana_pharmacy_council_number, district, region, is_verified)
@@ -67,74 +109,111 @@ async function run() {
            RETURNING id`,
           [
             user.rows[0].id,
-            `FoodTrace Pharmacy ${index + 1}`,
-            `GPC-${index + 1}00${index + 1}`,
-            index === 0 ? "Accra" : "Kumasi",
-            index === 0 ? "Greater Accra" : "Ashanti",
+            pharmacyDataItem.pharmacy.businessName,
+            pharmacyDataItem.pharmacy.gpcNumber,
+            pharmacyDataItem.pharmacy.district,
+            pharmacyDataItem.pharmacy.region,
           ]
         );
         return { userId: user.rows[0].id, pharmacyId: pharmacy.rows[0].id };
       })
     );
 
+    const pesticideData = [
+      ["Cypermethrin", "Cypermethrin", "approved", ["tomato", "pepper"], 7, "medium", "EPA approved; observe a 7 day withdrawal period."],
+      ["Chlorpyrifos", "Chlorpyrifos", "approved", ["maize", "cassava"], 14, "high", "EPA approved; observe a 14 day withdrawal period."],
+      ["DDT", "Dichlorodiphenyltrichloroethane", "banned", [], 0, "critical", "EPA banned pesticide for alert testing."],
+      ["Mancozeb", "Mancozeb", "approved", ["tomato", "potato"], 7, "medium", "Fungicide with standard precautions."],
+      ["Lambda-cyhalothrin", "Lambda-cyhalothrin", "restricted", ["maize"], 10, "high", "Restricted use insecticide."],
+      ["Glyphosate", "Glyphosate", "approved", ["maize"], 14, "medium", "Avoid crop contact during application."],
+      ["Metalaxyl", "Metalaxyl", "approved", ["cassava", "tomato"], 7, "low", "Seed treatment fungicide."],
+      ["Imidacloprid", "Imidacloprid", "restricted", ["pepper"], 14, "high", "Pollinator risk; follow label."],
+      ["Copper Hydroxide", "Copper hydroxide", "approved", ["tomato"], 3, "low", "Copper fungicide."],
+      ["Atrazine", "Atrazine", "restricted", ["maize"], 21, "medium", "Restricted herbicide."],
+    ] as const;
+
     const pesticideIds: string[] = [];
-    for (let i = 1; i <= 10; i++) {
+    for (const pesticideItem of pesticideData) {
       const pesticide = await client.query(
         `INSERT INTO pesticides (name, active_ingredient, epa_status, approved_crops, withdrawal_days, health_risk_level, health_risks, source)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'seed_dev')
          RETURNING id`,
         [
-          `Pesticide ${i}`,
-          `Active Ingredient ${i}`,
-          i % 4 === 0 ? "restricted" : "approved",
-          ["tomato", "maize"],
-          7 + i,
-          i % 4 === 0 ? "high" : "medium",
-          "Seeded test data",
+          pesticideItem[0],
+          pesticideItem[1],
+          pesticideItem[2],
+          pesticideItem[3],
+          pesticideItem[4],
+          pesticideItem[5],
+          pesticideItem[6],
         ]
       );
       pesticideIds.push(pesticide.rows[0].id);
     }
 
+    const drugData = [
+      ["Paracetamol 500mg", "Paracetamol", "Ghana Pharma", "FDA-DRUG-1001", "analgesic", "tablet", "500mg", false, false, "approved"],
+      ["Amoxicillin 250mg", "Amoxicillin", "Ghana Pharma", "FDA-DRUG-1002", "antibiotic", "capsule", "250mg", true, false, "approved"],
+      ["Artesunate 50mg", "Artesunate", "MalariaCare Labs", "FDA-DRUG-1003", "antimalarial", "tablet", "50mg", true, false, "approved"],
+      ["Fake Chloroquine", "Chloroquine", "Unknown Maker", "FDA-DRUG-1004", "antimalarial", "tablet", "250mg", true, false, "banned"],
+      ["Cetirizine 10mg", "Cetirizine", "CareMeds", "FDA-DRUG-1005", "antihistamine", "tablet", "10mg", false, false, "approved"],
+      ["Ibuprofen 400mg", "Ibuprofen", "CareMeds", "FDA-DRUG-1006", "NSAID", "tablet", "400mg", false, false, "approved"],
+      ["Metformin 500mg", "Metformin", "Diabeta Labs", "FDA-DRUG-1007", "antidiabetic", "tablet", "500mg", true, false, "approved"],
+      ["Diazepam 5mg", "Diazepam", "NeuroCare", "FDA-DRUG-1008", "benzodiazepine", "tablet", "5mg", true, true, "restricted"],
+      ["ORS Sachet", "Oral rehydration salts", "HealthPack", "FDA-DRUG-1009", "rehydration", "sachet", "standard", false, false, "approved"],
+      ["Cough Syrup DX", "Dextromethorphan", "HealthPack", "FDA-DRUG-1010", "cough suppressant", "syrup", "100ml", false, false, "under_review"],
+    ] as const;
+
     const drugIds: string[] = [];
-    for (let i = 1; i <= 10; i++) {
+    for (const drugItem of drugData) {
       const drug = await client.query(
         `INSERT INTO drugs (name, generic_name, manufacturer_name, fda_drug_registration_number, drug_class, dosage_form, strength, requires_prescription, is_controlled, fda_approval_status, storage_conditions, side_effects_summary, last_updated)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
          RETURNING id`,
         [
-          `Drug ${i}`,
-          `Generic ${i}`,
-          `Drug Maker ${i}`,
-          `DRUG-${i}00${i}`,
-          "antibiotic",
-          "tablet",
-          `${100 * i}mg`,
-          i % 2 === 0,
-          i % 3 === 0,
-          i % 4 === 0 ? "restricted" : "approved",
+          drugItem[0],
+          drugItem[1],
+          drugItem[2],
+          drugItem[3],
+          drugItem[4],
+          drugItem[5],
+          drugItem[6],
+          drugItem[7],
+          drugItem[8],
+          drugItem[9],
           "Store below 25C",
-          "Seeded test data",
+          "Seeded demo medicine. Follow label and clinician guidance.",
         ]
       );
       drugIds.push(drug.rows[0].id);
     }
 
+    const foodProductData = [
+      { batchNumber: "FB-1001", productName: "Accra Foods Tomato Paste 400g", farmOrigin: "Kumasi, Ashanti", recallStatus: "active" },
+      { batchNumber: "FB-2002", productName: "GoldCoast Sobolo Drink 500ml", farmOrigin: "Sunyani, Brong-Ahafo", recallStatus: "active" },
+      { batchNumber: "FB-4004", productName: "GoldCoast Sobolo Drink 500ml - RECALLED", farmOrigin: "Sunyani, Brong-Ahafo", recallStatus: "recalled" },
+      { batchNumber: "FB-3003", productName: "Northern Millet Flour 1kg", farmOrigin: "Tamale, Northern", recallStatus: "active" },
+      { batchNumber: "FB-5005", productName: "Ashanti Pepper Sauce 250ml", farmOrigin: "Kumasi, Ashanti", recallStatus: "active" },
+    ];
+
     const batchIds: string[] = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < foodProductData.length; i++) {
+      const product = foodProductData[i];
       const batch = await client.query(
-        `INSERT INTO product_batches (manufacturer_id, batch_number, ingredient_sources, processing_steps, quality_checks, packaging_date, expiry_date, recall_status)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_DATE - ($6 || ' days')::interval, CURRENT_DATE + ($7 || ' days')::interval, $8)
+        `INSERT INTO product_batches (manufacturer_id, batch_number, product_name, farm_origin, ingredient_sources, processing_steps, quality_checks, packaging_date, expiry_date, recall_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE - ($8 || ' days')::interval, CURRENT_DATE + ($9 || ' days')::interval, $10)
          RETURNING id`,
         [
           manufacturers[i % manufacturers.length].manufacturerId,
-          `FB-${i + 1}00${i + 1}`,
-          JSON.stringify([{ farmerId: farmers[i % farmers.length], ingredientName: `Ingredient ${i + 1}` }]),
+          product.batchNumber,
+          product.productName,
+          product.farmOrigin,
+          JSON.stringify([{ farmerId: farmers[i % farmers.length].userId, ingredientName: product.productName }]),
           JSON.stringify([{ step: "mix", order: 1 }, { step: "pack", order: 2 }]),
           JSON.stringify([{ check: "visual", result: "pass" }]),
           i + 1,
           365 - i * 10,
-          i === 3 ? "recalled" : "active",
+          product.recallStatus,
         ]
       );
       batchIds.push(batch.rows[0].id);

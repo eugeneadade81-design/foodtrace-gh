@@ -183,11 +183,17 @@ export async function lookupDrugProduct(codeString: string) {
       db.expiry_date,
       db.quantity_remaining,
       db.recall_status,
-      db.recall_reason,
       d.name,
       d.manufacturer_name,
       d.requires_prescription,
-      d.fda_approval_status
+      d.fda_approval_status,
+      (
+        SELECT r.reason
+        FROM drug_recall_events r
+        WHERE r.drug_batch_id = db.id
+        ORDER BY r.created_at DESC
+        LIMIT 1
+      ) AS recall_reason
     FROM drug_qr_codes q
     JOIN drug_batches db ON db.id = q.drug_batch_id
     JOIN drugs d ON d.id = db.drug_id

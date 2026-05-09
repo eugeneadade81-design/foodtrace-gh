@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   USER_ROLES,
   type AuthResponse,
@@ -27,10 +27,27 @@ import {
   type UserRole,
 } from "@foodtrace/shared";
 
-const apiBase = "http://localhost:3000/api";
+const apiBase = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:3000/api";
 const sampleCodes = ["FT-QR-1001", "FT-QR-2002", "FT-QR-4004"];
 
 type Mode = "login" | "register";
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error && typeof error === "object") {
+    const flattened = error as {
+      formErrors?: string[];
+      fieldErrors?: Record<string, string[]>;
+    };
+    const fieldMessage = flattened.fieldErrors ? Object.values(flattened.fieldErrors).flat()[0] : undefined;
+    return fieldMessage ?? flattened.formErrors?.[0] ?? fallback;
+  }
+
+  return fallback;
+}
 
 function App() {
   const [mode, setMode] = useState<Mode>("login");
@@ -126,9 +143,32 @@ function App() {
 
   const roleList = useMemo(() => USER_ROLES, []);
   const currentRole = session?.user.role ?? null;
+  const isConsumer = currentRole === "consumer";
   const isFarmer = currentRole === "farmer";
   const isManufacturer = currentRole === "manufacturer";
   const isRegulator = currentRole === "regulator";
+  const isPharmacist = currentRole === "pharmacist";
+  const canUseConsumerScan = !session || isConsumer || isPharmacist;
+
+  const displayName = session?.user.fullName || session?.user.email || session?.user.phone || "Account";
+  const avatarLabel = useMemo(() => {
+    const raw = (session?.user.fullName || session?.user.email || session?.user.phone || "").trim();
+    if (!raw) return "FT";
+    const parts = raw
+      .replace(/@.*/, "")
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2);
+    const initials = parts.map((part) => part[0]?.toUpperCase()).join("");
+    return initials || "FT";
+  }, [session?.user.email, session?.user.fullName, session?.user.phone]);
+
+  function signOut() {
+    setSession(null);
+    setIdentifier("");
+    setPassword("");
+    setStatus("Signed out.");
+  }
 
   async function submit() {
     setStatus("Sending request...");
@@ -147,15 +187,24 @@ function App() {
       const data = (await response.json()) as AuthResponse & { error?: unknown };
 
       if (!response.ok) {
-        throw new Error(typeof data.error === "string" ? data.error : "Authentication failed");
+        throw new Error(getApiErrorMessage(data.error, "Authentication failed"));
       }
 
       setSession(data);
-      setStatus(`Signed in as ${data.user.role}`);
+      setStatus(`Signed in as ${data.user.role}. Opening your portal...`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Authentication failed");
     }
   }
+
+  useEffect(() => {
+    if (!session?.token) return;
+
+    if (session.user.role === "farmer") void loadFoodDashboard();
+    if (session.user.role === "manufacturer") void loadManufacturerDashboard();
+    if (session.user.role === "regulator") void loadRegulatorDashboard();
+    if (session.user.role === "pharmacist") void loadPharmacyDashboard();
+  }, [session?.token, session?.user.role]);
 
   async function scanProduct(code = scanCode) {
     const normalized = code.trim();
@@ -700,10 +749,20 @@ function App() {
     <main style={styles.page}>
       <section style={styles.hero}>
         <p style={styles.kicker}>FoodTrace GH</p>
-        <h1 style={styles.title}>Identity, roles, and consumer scan lookup.</h1>
+        <h1 style={styles.title}>Scan It. Trace It. Trust It.</h1>
         <p style={styles.body}>
-          The first production flow now supports authentication, a public scan result for QR or batch codes, and role-protected web portals for farmers, manufacturers, and regulators.
+          FoodTrace GH connects consumers, farmers, manufacturers, pharmacists, and FDA regulators in one traceability platform for safer food and medicine.
         </p>
+        {!session ? (
+          <div style={styles.foodButtons}>
+            <button type="button" style={styles.primaryButton} onClick={() => setMode("login")}>
+              Log in
+            </button>
+            <button type="button" style={styles.sampleButton} onClick={() => setMode("register")}>
+              Create account
+            </button>
+          </div>
+        ) : null}
         <div style={styles.roleGrid}>
           {roleList.map((item) => (
             <button key={item} style={role === item ? styles.roleActive : styles.rolePill} onClick={() => setRole(item)} type="button">
@@ -714,82 +773,89 @@ function App() {
       </section>
 
       <section style={styles.card}>
-        <div style={styles.segmented}>
-          <button style={mode === "login" ? styles.segmentActive : styles.segment} onClick={() => setMode("login")} type="button">
-            Log in
-          </button>
-          <button style={mode === "register" ? styles.segmentActive : styles.segment} onClick={() => setMode("register")} type="button">
-            Create account
-          </button>
-        </div>
-
-        {mode === "register" ? (
-          <div style={styles.form}>
-            <label style={styles.label}>
-              Full name
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={styles.input} />
-            </label>
-            <label style={styles.label}>
-              Phone
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} style={styles.input} />
-            </label>
-            <label style={styles.label}>
-              Email
-              <input value={email} onChange={(e) => setEmail(e.target.value)} style={styles.input} />
-            </label>
-            <label style={styles.label}>
-              Password
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={styles.input} />
-            </label>
-            <label style={styles.label}>
-              Role
-              <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} style={styles.input}>
-                {roleList.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label style={styles.label}>
-              Language
-              <input value={language} onChange={(e) => setLanguage(e.target.value)} style={styles.input} />
-            </label>
-            <button type="button" onClick={submit} style={styles.primaryButton}>
-              Create account
-            </button>
+        {session ? (
+          <div style={styles.signedIn}>
+            <div style={styles.userRow}>
+              <div style={styles.avatar}>{avatarLabel}</div>
+              <div style={styles.userMeta}>
+                <p style={styles.userName}>{displayName}</p>
+                <p style={styles.userSub}>{session.user.role}</p>
+              </div>
+              <button type="button" onClick={signOut} style={styles.secondaryButton}>
+                Log out
+              </button>
+            </div>
+            <p style={styles.status}>{status}</p>
           </div>
         ) : (
-          <div style={styles.form}>
-            <label style={styles.label}>
-              Phone or email
-              <input value={identifier} onChange={(e) => setIdentifier(e.target.value)} style={styles.input} />
-            </label>
-            <label style={styles.label}>
-              Password
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={styles.input} />
-            </label>
-            <button type="button" onClick={submit} style={styles.primaryButton}>
-              Log in
-            </button>
-          </div>
-        )}
+          <>
+            <div style={styles.segmented}>
+              <button style={mode === "login" ? styles.segmentActive : styles.segment} onClick={() => setMode("login")} type="button">
+                Log in
+              </button>
+              <button style={mode === "register" ? styles.segmentActive : styles.segment} onClick={() => setMode("register")} type="button">
+                Create account
+              </button>
+            </div>
 
-        <p style={styles.status}>{status}</p>
-        {session ? (
-          <pre style={styles.session}>
-            {JSON.stringify(
-              {
-                tokenPreview: session.token.slice(0, 24) + "...",
-                user: session.user,
-              },
-              null,
-              2
+            {mode === "register" ? (
+              <div style={styles.form}>
+                <label style={styles.label}>
+                  Full name
+                  <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={styles.input} />
+                </label>
+                <label style={styles.label}>
+                  Phone
+                  <input value={phone} onChange={(e) => setPhone(e.target.value)} style={styles.input} />
+                </label>
+                <label style={styles.label}>
+                  Email
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} style={styles.input} />
+                </label>
+                <label style={styles.label}>
+                  Password
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={styles.input} />
+                </label>
+                <label style={styles.label}>
+                  Role
+                  <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} style={styles.input}>
+                    {roleList.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={styles.label}>
+                  Language
+                  <input value={language} onChange={(e) => setLanguage(e.target.value)} style={styles.input} />
+                </label>
+                <button type="button" onClick={submit} style={styles.primaryButton}>
+                  Create account
+                </button>
+              </div>
+            ) : (
+              <div style={styles.form}>
+                <label style={styles.label}>
+                  Phone or email
+                  <input value={identifier} onChange={(e) => setIdentifier(e.target.value)} style={styles.input} />
+                </label>
+                <label style={styles.label}>
+                  Password
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={styles.input} />
+                </label>
+                <button type="button" onClick={submit} style={styles.primaryButton}>
+                  Log in
+                </button>
+              </div>
             )}
-          </pre>
-        ) : null}
+
+            <p style={styles.status}>{status}</p>
+          </>
+        )}
       </section>
 
+      {canUseConsumerScan ? (
       <section style={styles.scanCard}>
         <p style={styles.scanKicker}>Consumer scan</p>
         <h2 style={styles.scanTitle}>Check a code and see the safety result.</h2>
@@ -872,6 +938,7 @@ function App() {
           <p style={styles.status}>{reportStatusText}</p>
         </article>
       </section>
+      ) : null}
 
       {isFarmer ? (
       <section style={styles.foodCard}>
@@ -1091,12 +1158,17 @@ function App() {
       </section>
       ) : null}
 
+      {(canUseConsumerScan || isPharmacist) ? (
       <section style={styles.foodCard}>
         <p style={styles.scanKicker}>Drug module</p>
-        <h2 style={styles.scanTitle}>Pharmacy registration, batches, and drug scans.</h2>
+        <h2 style={styles.scanTitle}>{isPharmacist ? "Pharmacy registration, batches, and drug scans." : "Drug QR scan."}</h2>
         <p style={styles.scanBody}>
-          This module is split into a pharmacist-only workflow for registering pharmacies and logging drug batches, plus a public drug QR scan.
+          {isPharmacist
+            ? "Register the pharmacy, log drug records and batches, generate QR codes, and scan public drug QR labels."
+            : "Scan a medicine QR code to check approval, expiry, recall status, and the recommended action."}
         </p>
+        {isPharmacist ? (
+        <>
         <div style={styles.foodButtons}>
           <button type="button" style={styles.primaryButton} onClick={() => void loadPharmacyDashboard()}>
             Load pharmacy dashboard
@@ -1152,6 +1224,8 @@ function App() {
           <input value={drugRecallBatchId} onChange={(e) => setDrugRecallBatchId(e.target.value)} style={styles.scanInput} placeholder="Drug batch ID for recall" />
           <input value={drugRecallReason} onChange={(e) => setDrugRecallReason(e.target.value)} style={styles.scanInput} placeholder="Drug recall reason" />
         </div>
+        </>
+        ) : null}
         <div style={styles.scanInputRow}>
           <input value={drugScanCode} onChange={(e) => setDrugScanCode(e.target.value)} style={styles.scanInput} placeholder="DR-QR-1001" />
           <button type="button" style={styles.primaryButton} onClick={() => void scanDrug()}>
@@ -1159,7 +1233,7 @@ function App() {
           </button>
         </div>
         <p style={styles.status}>{drugScanStatus}</p>
-        <p style={styles.status}>{pharmacyStatus}</p>
+        {isPharmacist ? <p style={styles.status}>{pharmacyStatus}</p> : null}
         {drugScanResult ? (
           <article style={styles.resultCard}>
             <h3 style={styles.resultTitle}>{drugScanResult.title}</h3>
@@ -1171,7 +1245,7 @@ function App() {
             <p style={styles.resultSummary}>{drugScanResult.recommendedAction}</p>
           </article>
         ) : null}
-        {pharmacyDashboard ? (
+        {isPharmacist && pharmacyDashboard ? (
           <article style={styles.resultCard}>
             <h3 style={styles.resultTitle}>Pharmacy metrics</h3>
             <p style={styles.resultSummary}>
@@ -1184,6 +1258,7 @@ function App() {
           </article>
         ) : null}
       </section>
+      ) : null}
     </main>
   );
 }
@@ -1311,18 +1386,59 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     cursor: "pointer",
   },
+  secondaryButton: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "transparent",
+    color: "#f4f4ef",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
   status: {
     marginTop: 18,
     marginBottom: 0,
     color: "#a9c7b8",
   },
-  session: {
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 16,
-    background: "#0b0f13",
-    overflow: "auto",
-    fontSize: 12,
+  signedIn: {
+    display: "grid",
+    gap: 14,
+  },
+  userRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    display: "grid",
+    placeItems: "center",
+    background: "#c4f1db",
+    color: "#12392d",
+    fontWeight: 800,
+    letterSpacing: 0.5,
+    flex: "0 0 auto",
+  },
+  userMeta: {
+    minWidth: 0,
+    flex: "1 1 auto",
+  },
+  userName: {
+    margin: 0,
+    color: "#f4f4ef",
+    fontWeight: 700,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  userSub: {
+    margin: 0,
+    marginTop: 4,
+    color: "rgba(169,199,184,0.9)",
+    textTransform: "capitalize",
+    fontSize: 13,
   },
   scanCard: {
     gridColumn: "1 / -1",

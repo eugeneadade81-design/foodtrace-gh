@@ -55,9 +55,12 @@ function deriveStatus(row: QueryResultRow): ProductScanStatus {
 
 function buildResult(row: QueryResultRow): ProductScanResult {
   const status = deriveStatus(row);
+  const statusLabel =
+    status === "safe" ? "GREEN" : status === "recalled" ? "RED" : status === "not_found" ? "NOT_FOUND" : "YELLOW";
   return {
     codeString: row.code_string,
     status,
+    statusLabel,
     title: status === "recalled" ? "Recalled product" : "Verified product",
     summary:
       status === "recalled"
@@ -65,6 +68,8 @@ function buildResult(row: QueryResultRow): ProductScanResult {
         : status === "caution"
           ? "This product needs caution. Review the reason before use."
           : "No recall flag or major issue found for this batch.",
+    productName: row.product_name ?? null,
+    farmOrigin: row.farm_origin ?? null,
     batchNumber: row.batch_number,
     manufacturerName: row.company_name,
     packagingDate: row.packaging_date?.toISOString?.().slice(0, 10) ?? row.packaging_date,
@@ -147,6 +152,8 @@ async function loadScanResult(codeString: string) {
       q.s3_url,
       pb.id AS batch_id,
       pb.batch_number,
+      pb.product_name,
+      pb.farm_origin,
       pb.packaging_date,
       pb.expiry_date,
       pb.recall_status,

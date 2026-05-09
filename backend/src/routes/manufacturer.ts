@@ -1,5 +1,8 @@
 import { Router } from "express";
+import fs from "fs";
+import path from "path";
 import { z } from "zod";
+import QRCode from "qrcode";
 import { pool } from "../config/db";
 import { requireAuth, type AuthenticatedRequest, requireRole } from "../middleware/auth";
 import type {
@@ -12,6 +15,8 @@ import type {
 } from "@foodtrace/shared";
 
 const router = Router();
+const qrOutputDir = path.join(process.cwd(), "uploads", "qrcodes");
+fs.mkdirSync(qrOutputDir, { recursive: true });
 
 const createProfileSchema = z.object({
   companyName: z.string().trim().min(2),
@@ -22,6 +27,8 @@ const createProfileSchema = z.object({
 
 const createBatchSchema = z.object({
   batchNumber: z.string().trim().min(2),
+  productName: z.string().trim().min(2).optional().nullable(),
+  farmOrigin: z.string().trim().min(2).optional().nullable(),
   ingredientSources: z.unknown().optional(),
   processingSteps: z.unknown().optional(),
   qualityChecks: z.unknown().optional(),
@@ -149,6 +156,15 @@ function makeQrCode(batchNumber: string) {
   return `FT-QR-${batchNumber.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
 }
 
+async function ensureQrImage(codeString: string) {
+  const filename = `${codeString}.png`;
+  const filePath = path.join(qrOutputDir, filename);
+  if (!fs.existsSync(filePath)) {
+    await QRCode.toFile(filePath, codeString, { width: 512, margin: 2 });
+  }
+  return `/uploads/qrcodes/${filename}`;
+}
+
 router.use(requireAuth);
 router.use(requireRole("manufacturer"));
 
@@ -208,6 +224,8 @@ router.post("/batches", async (req: AuthenticatedRequest, res) => {
     INSERT INTO product_batches (
       manufacturer_id,
       batch_number,
+      product_name,
+      farm_origin,
       ingredient_sources,
       processing_steps,
       quality_checks,
@@ -215,12 +233,14 @@ router.post("/batches", async (req: AuthenticatedRequest, res) => {
       expiry_date,
       recall_status
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active')
     RETURNING id, manufacturer_id, batch_number, packaging_date, expiry_date, recall_status
     `,
     [
       profile.id,
       body.batchNumber,
+      body.productName ?? null,
+      body.farmOrigin ?? null,
       JSON.stringify(normalizeJson(body.ingredientSources)),
       JSON.stringify(normalizeJson(body.processingSteps)),
       JSON.stringify(normalizeJson(body.qualityChecks)),
@@ -230,13 +250,14 @@ router.post("/batches", async (req: AuthenticatedRequest, res) => {
   );
 
   const codeString = makeQrCode(body.batchNumber);
+  const qrUrl = await ensureQrImage(codeString);
   const qr = await pool.query(
     `
     INSERT INTO qr_codes (batch_id, code_string, s3_url, scan_count, status)
     VALUES ($1, $2, $3, 0, 'active')
     RETURNING id, code_string, status
     `,
-    [batch.rows[0].id, codeString, null]
+    [batch.rows[0].id, codeString, qrUrl]
   );
 
   const response: CreateProductBatchResponse = {
@@ -254,10 +275,47 @@ router.post("/batches", async (req: AuthenticatedRequest, res) => {
       id: qr.rows[0].id,
       codeString: qr.rows[0].code_string,
       status: qr.rows[0].status,
+      url: qrUrl,
     },
   };
 
   return res.status(201).json(response);
+});
+
+router.get("/batches/:id", async (req: AuthenticatedRequest, res) => {
+  const profile = await getManufacturerProfile(req.auth!.userId);
+  if (!profile) return res.status(404).json({ error: "Manufacturer profile not found" });
+
+  const batchId = String(req.params.id);
+  const result = await pool.query(
+    `
+    SELECT
+      pb.id,
+      pb.manufacturer_id,
+      pb.batch_number,
+      pb.product_name,
+      pb.farm_origin,
+      pb.ingredient_sources,
+      pb.processing_steps,
+      pb.quality_checks,
+      pb.packaging_date,
+      pb.expiry_date,
+      pb.recall_status,
+      pb.recall_reason,
+      q.code_string AS qr_code,
+      q.s3_url AS qr_url,
+      q.status AS qr_status,
+      q.scan_count
+    FROM product_batches pb
+    LEFT JOIN qr_codes q ON q.batch_id = pb.id
+    WHERE pb.id = $1 AND pb.manufacturer_id = $2
+    LIMIT 1
+    `,
+    [batchId, profile.id]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: "Batch not found" });
+
+  return res.json({ batch: result.rows[0] });
 });
 
 router.post("/recalls", async (req: AuthenticatedRequest, res) => {
@@ -296,6 +354,60 @@ router.post("/recalls", async (req: AuthenticatedRequest, res) => {
     `UPDATE qr_codes SET status = 'recalled' WHERE batch_id = $1`,
     [body.batchId]
   );
+
+  const recall = await pool.query(
+    `
+    INSERT INTO recall_events (batch_id, issued_by, recall_type, reason, scope_districts, notification_sent_at)
+    VALUES ($1, $2, $3, $4, $5, now())
+    RETURNING id, batch_id, recall_type, reason, created_at
+    `,
+    [body.batchId, req.auth!.userId, body.recallType, body.reason, body.scopeDistricts ?? []]
+  );
+
+  return res.status(201).json({
+    batchId: updatedBatch.rows[0].id,
+    recall: recall.rows[0],
+  });
+});
+
+// Compatibility alias for `/api/manufacturer/batches/:id/recall`.
+router.post("/batches/:id/recall", async (req: AuthenticatedRequest, res) => {
+  const parsed = createRecallSchema.safeParse({
+    ...(req.body ?? {}),
+    batchId: req.params.id,
+    recallType: "manufacturer",
+  });
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const profile = await getManufacturerProfile(req.auth!.userId);
+  if (!profile) {
+    return res.status(404).json({ error: "Manufacturer profile not found" });
+  }
+
+  const body = parsed.data satisfies CreateRecallRequest;
+  const batchCheck = await pool.query(`SELECT id FROM product_batches WHERE id = $1 AND manufacturer_id = $2 LIMIT 1`, [
+    body.batchId,
+    profile.id,
+  ]);
+  if (!batchCheck.rowCount) {
+    return res.status(404).json({ error: "Batch not found" });
+  }
+
+  const updatedBatch = await pool.query(
+    `
+    UPDATE product_batches
+    SET recall_status = 'recalled',
+        recall_reason = $2,
+        recalled_at = now()
+    WHERE id = $1
+    RETURNING id
+    `,
+    [body.batchId, body.reason]
+  );
+
+  await pool.query(`UPDATE qr_codes SET status = 'recalled' WHERE batch_id = $1`, [body.batchId]);
 
   const recall = await pool.query(
     `

@@ -293,6 +293,34 @@ router.post("/crop-cycles", async (req: AuthenticatedRequest, res) => {
   return res.status(201).json({ cropCycle: result.rows[0] });
 });
 
+// Compatibility alias for `/api/farmer/farms/:farmId/cycles`.
+router.post("/farms/:farmId/cycles", async (req: AuthenticatedRequest, res) => {
+  const parsed = createCropCycleSchema
+    .omit({ farmId: true })
+    .extend({ plantingDate: z.string().min(8) })
+    .safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const farmId = String(req.params.farmId);
+  const farmCheck = await pool.query(`SELECT id FROM farms WHERE id = $1 AND owner_id = $2 LIMIT 1`, [farmId, req.auth!.userId]);
+  if (!farmCheck.rowCount) {
+    return res.status(404).json({ error: "Farm not found" });
+  }
+
+  const result = await pool.query(
+    `
+    INSERT INTO crop_cycles (farm_id, crop_type, planting_date, notes, status)
+    VALUES ($1, $2, $3, $4, 'growing')
+    RETURNING id, farm_id, crop_type, planting_date, harvest_date, market_ready, status
+    `,
+    [farmId, parsed.data.cropType, parsed.data.plantingDate, parsed.data.notes ?? null]
+  );
+
+  return res.status(201).json({ cropCycle: result.rows[0] });
+});
+
 router.post("/input-logs", async (req: AuthenticatedRequest, res) => {
   const parsed = createInputLogSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -353,6 +381,112 @@ router.post("/input-logs", async (req: AuthenticatedRequest, res) => {
     inputLog: result.rows[0],
     safeHarvestDate,
     pesticideCheck,
+  });
+});
+
+// Compatibility alias for `/api/farmer/cycles/:cycleId/inputs`.
+router.post("/cycles/:cycleId/inputs", async (req: AuthenticatedRequest, res) => {
+  const parsed = createInputLogSchema.omit({ cropCycleId: true }).safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const cropCycleId = String(req.params.cycleId);
+  const body = { ...parsed.data, cropCycleId } satisfies CreateInputLogRequest;
+
+  const cycleCheck = await pool.query(
+    `
+    SELECT cc.id, cc.crop_type, f.owner_id
+    FROM crop_cycles cc
+    INNER JOIN farms f ON f.id = cc.farm_id
+    WHERE cc.id = $1 AND f.owner_id = $2
+    LIMIT 1
+    `,
+    [body.cropCycleId, req.auth!.userId]
+  );
+  if (!cycleCheck.rowCount) {
+    return res.status(404).json({ error: "Crop cycle not found" });
+  }
+
+  const cropType = String(cycleCheck.rows[0].crop_type);
+  const withdrawalDaysInput = Number(body.withdrawalPeriodDays ?? 0);
+  const pesticideCheck = body.inputType === "pesticide" ? await crossCheckPesticide(body.productName, cropType) : null;
+  const withdrawalDays = Math.max(withdrawalDaysInput, pesticideCheck?.withdrawalDays ?? 0);
+  const safeHarvestDate = computeSafeHarvestDate(body.applicationDate, withdrawalDays);
+
+  const result = await pool.query(
+    `
+    INSERT INTO input_logs (
+      crop_cycle_id,
+      input_type,
+      product_name,
+      epa_approval_status,
+      application_date,
+      concentration,
+      unit,
+      withdrawal_period_days,
+      safe_harvest_date
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING id, crop_cycle_id, input_type, product_name, application_date, concentration, unit, withdrawal_period_days, safe_harvest_date, epa_approval_status
+    `,
+    [
+      body.cropCycleId,
+      body.inputType,
+      body.productName,
+      pesticideCheck?.epaStatus ?? "unverified",
+      body.applicationDate,
+      body.concentration ?? null,
+      body.unit ?? null,
+      withdrawalDays,
+      safeHarvestDate,
+    ]
+  );
+
+  return res.status(201).json({
+    inputLog: result.rows[0],
+    safeHarvestDate,
+    pesticideCheck,
+  });
+});
+
+router.get("/cycles/:cycleId/status", async (req: AuthenticatedRequest, res) => {
+  const cropCycleId = String(req.params.cycleId);
+  const cycle = await pool.query(
+    `
+    SELECT cc.id, cc.farm_id, cc.crop_type, cc.planting_date, cc.harvest_date, cc.market_ready, cc.status
+    FROM crop_cycles cc
+    INNER JOIN farms f ON f.id = cc.farm_id
+    WHERE cc.id = $1 AND f.owner_id = $2
+    LIMIT 1
+    `,
+    [cropCycleId, req.auth!.userId]
+  );
+  if (!cycle.rowCount) {
+    return res.status(404).json({ error: "Crop cycle not found" });
+  }
+
+  const latestInput = await pool.query(
+    `
+    SELECT safe_harvest_date, withdrawal_period_days, application_date
+    FROM input_logs
+    WHERE crop_cycle_id = $1
+    ORDER BY application_date DESC, created_at DESC
+    LIMIT 1
+    `,
+    [cropCycleId]
+  );
+
+  const rawSafeHarvest = latestInput.rows[0]?.safe_harvest_date ?? null;
+  const safeHarvestDate =
+    rawSafeHarvest && typeof rawSafeHarvest?.toISOString === "function"
+      ? rawSafeHarvest.toISOString().slice(0, 10)
+      : rawSafeHarvest
+        ? String(rawSafeHarvest).slice(0, 10)
+        : null;
+  return res.json({
+    cropCycle: cycle.rows[0],
+    safeHarvestDate,
   });
 });
 

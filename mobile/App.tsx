@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { Audio } from "expo-av";
 import * as Speech from "expo-speech";
 import AsyncStorage from "expo-sqlite/kv-store";
@@ -32,12 +33,20 @@ import {
   type SpeechSummaryResponse,
 } from "@foodtrace/shared";
 
-const apiBase = "http://localhost:3000/api";
+const defaultApiBase =
+  Platform.OS === "android"
+    ? "http://10.0.2.2:3000/api" // Android emulator -> host machine loopback
+    : "http://localhost:3000/api";
 const sampleCodes = ["FT-QR-1001", "FT-QR-2002", "FT-QR-4004"];
 const consumerHistoryKey = "foodtrace.consumer.history.v1";
+const apiBaseKey = "foodtrace.apiBase.v1";
 
 type Mode = "login" | "register";
-type ConsumerScreen = "home" | "scanner" | "history";
+type ConsumerScreen = "home" | "food" | "drug" | "history";
+type ScannerTarget = {
+  kind: "food" | "drug";
+  codeString: string;
+};
 type HistoryEntry = {
   id: string;
   kind: "food" | "drug";
@@ -60,11 +69,15 @@ export default function App() {
   const [language, setLanguage] = useState("en");
   const [status, setStatus] = useState("Ready");
   const [session, setSession] = useState<AuthResponse | null>(null);
+  const [apiBase, setApiBase] = useState(defaultApiBase);
+  const [apiBaseDraft, setApiBaseDraft] = useState(defaultApiBase);
   const [consumerScreen, setConsumerScreen] = useState<ConsumerScreen>("home");
   const [scanCode, setScanCode] = useState("FT-QR-1001");
   const [scanResult, setScanResult] = useState<ProductScanResult | null>(null);
   const [scanStatus, setScanStatus] = useState("Ready to scan");
   const [scanLoading, setScanLoading] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [scannerPaused, setScannerPaused] = useState(false);
   const [consumerHistory, setConsumerHistory] = useState<HistoryEntry[]>([]);
   const [reportDescription, setReportDescription] = useState("The product looks damaged and the label is unclear.");
   const [reportDistrict, setReportDistrict] = useState("Accra");
@@ -143,8 +156,34 @@ export default function App() {
   const [drugSupplierName, setDrugSupplierName] = useState("Global Med Supplies");
   const [drugRecallBatchId, setDrugRecallBatchId] = useState("");
   const [drugRecallReason, setDrugRecallReason] = useState("Quality issue");
+  const cameraResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const roleList = useMemo(() => USER_ROLES, []);
+  const currentRole = session?.user.role ?? null;
+  const isConsumer = currentRole === "consumer";
+  const isFarmer = currentRole === "farmer";
+  const isManufacturer = currentRole === "manufacturer";
+  const isRegulator = currentRole === "regulator";
+  const isPharmacist = currentRole === "pharmacist";
+  const showConsumerApp = !session || isConsumer || isPharmacist;
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(apiBaseKey);
+        if (cancelled) return;
+        const next = saved?.trim() ? saved.trim() : defaultApiBase;
+        setApiBase(next);
+        setApiBaseDraft(next);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -157,6 +196,28 @@ export default function App() {
         // best effort offline cache
       }
     })();
+  }, []);
+
+  async function saveApiBase() {
+    const next = apiBaseDraft.trim();
+    if (!next) return;
+    setApiBase(next);
+    await AsyncStorage.setItem(apiBaseKey, next);
+    setStatus(`API set to ${next}`);
+  }
+
+  useEffect(() => {
+    if (consumerScreen === "food" && cameraPermission === null) {
+      void requestCameraPermission();
+    }
+  }, [cameraPermission, consumerScreen, requestCameraPermission]);
+
+  useEffect(() => {
+    return () => {
+      if (cameraResumeTimerRef.current) {
+        clearTimeout(cameraResumeTimerRef.current);
+      }
+    };
   }, []);
 
   async function persistConsumerHistory(next: HistoryEntry[]) {
@@ -185,6 +246,66 @@ export default function App() {
       ? `${scanResult.title}. ${scanResult.summary}. ${scanResult.recommendedAction ?? ""}`
       : "No scan result available.";
     return result.trim();
+  }
+
+  function clearCameraResumeTimer() {
+    if (cameraResumeTimerRef.current) {
+      clearTimeout(cameraResumeTimerRef.current);
+      cameraResumeTimerRef.current = null;
+    }
+  }
+
+  function scheduleCameraResume(delayMs = 2200) {
+    clearCameraResumeTimer();
+    cameraResumeTimerRef.current = setTimeout(() => {
+      setScannerPaused(false);
+      cameraResumeTimerRef.current = null;
+    }, delayMs);
+  }
+
+  function parseScannerTarget(raw: string): ScannerTarget | null {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const normalized = trimmed.replace(/\s+/g, "");
+
+    try {
+      const url = new URL(normalized);
+      const pathSegments = url.pathname
+        .split("/")
+        .map((segment) => segment.trim())
+        .filter(Boolean)
+        .map((segment) => decodeURIComponent(segment));
+      const queryCode =
+        url.searchParams.get("batchId") ??
+        url.searchParams.get("drugBatchId") ??
+        url.searchParams.get("code") ??
+        url.searchParams.get("id") ??
+        url.searchParams.get("qr");
+      const lowerSegments = pathSegments.map((segment) => segment.toLowerCase());
+      const kind: ScannerTarget["kind"] = lowerSegments.some((segment) => segment.includes("drug"))
+        ? "drug"
+        : "food";
+      const lastSegment = pathSegments[pathSegments.length - 1] ?? "";
+      const codeString = (queryCode ?? lastSegment).trim();
+
+      if (!codeString) {
+        return null;
+      }
+
+      return {
+        kind,
+        codeString: codeString.toUpperCase(),
+      };
+    } catch {
+      const upper = normalized.toUpperCase();
+      if (upper.startsWith("DR-") || upper.includes("/DRUGS/") || upper.includes("DR-QR-")) {
+        return { kind: "drug", codeString: upper };
+      }
+      return { kind: "food", codeString: upper };
+    }
   }
 
   async function playGoogleSpeech(text: string) {
@@ -260,8 +381,8 @@ export default function App() {
     }
   }
 
-  async function scanProduct(code = scanCode) {
-    const normalized = code.trim();
+  async function scanFoodProduct(code = scanCode) {
+    const normalized = code.trim().toUpperCase();
     if (!normalized) {
       setScanStatus("Enter a batch code first.");
       return;
@@ -289,6 +410,71 @@ export default function App() {
     } finally {
       setScanLoading(false);
     }
+  }
+
+  async function scanProduct(code = scanCode) {
+    return scanFoodProduct(code);
+  }
+
+  async function scanDrugProduct(code = drugScanCode) {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) {
+      setDrugScanStatus("Enter a drug QR code first.");
+      return;
+    }
+
+    setDrugScanStatus("Looking up drug...");
+    try {
+      const response = await fetch(`${apiBase}/drug/scan/${encodeURIComponent(normalized)}`, {
+        headers: session?.token ? { Authorization: `Bearer ${session.token}` } : undefined,
+      });
+      const data = (await response.json()) as { result: DrugScanResult };
+      setDrugScanResult(data.result);
+      setDrugScanStatus(`Drug scan complete: ${data.result.status}`);
+      pushConsumerHistory({
+        kind: "drug",
+        codeString: data.result.codeString,
+        status: data.result.status,
+        title: data.result.title,
+        summary: data.result.summary,
+        recommendedAction: data.result.recommendedAction,
+      });
+    } catch (error) {
+      setDrugScanStatus(error instanceof Error ? error.message : "Drug scan failed");
+    }
+  }
+
+  async function scanDrug(code = drugScanCode) {
+    return scanDrugProduct(code);
+  }
+
+  async function handleCameraScan(rawValue: string) {
+    if (scanLoading || scannerPaused) {
+      return;
+    }
+
+    const target = parseScannerTarget(rawValue);
+    if (!target) {
+      setScanStatus("Could not read a QR code.");
+      return;
+    }
+
+    setScannerPaused(true);
+    if (target.kind === "drug") {
+      setDrugScanCode(target.codeString);
+      setScanStatus(`Drug QR detected: ${target.codeString}`);
+      await scanDrugProduct(target.codeString);
+    } else {
+      setScanCode(target.codeString);
+      setScanStatus(`Food QR detected: ${target.codeString}`);
+      await scanFoodProduct(target.codeString);
+    }
+
+    scheduleCameraResume();
+  }
+
+  async function handleBarcodeScanned({ data }: { data: string }) {
+    await handleCameraScan(data);
   }
 
   async function submitConsumerReport() {
@@ -619,34 +805,6 @@ export default function App() {
     await loadRegulatorDashboard();
   }
 
-  async function scanDrug(code = drugScanCode) {
-    const normalized = code.trim();
-    if (!normalized) {
-      setDrugScanStatus("Enter a drug QR code first.");
-      return;
-    }
-
-    setDrugScanStatus("Looking up drug...");
-    try {
-      const response = await fetch(`${apiBase}/drug/scan/${encodeURIComponent(normalized)}`, {
-        headers: session?.token ? { Authorization: `Bearer ${session.token}` } : undefined,
-      });
-      const data = (await response.json()) as { result: DrugScanResult };
-      setDrugScanResult(data.result);
-      setDrugScanStatus(`Drug scan complete: ${data.result.status}`);
-      pushConsumerHistory({
-        kind: "drug",
-        codeString: data.result.codeString,
-        status: data.result.status,
-        title: data.result.title,
-        summary: data.result.summary,
-        recommendedAction: data.result.recommendedAction,
-      });
-    } catch (error) {
-      setDrugScanStatus(error instanceof Error ? error.message : "Drug scan failed");
-    }
-  }
-
   async function loadPharmacyDashboard() {
     if (!session?.token) {
       setPharmacyStatus("Log in first to view the pharmacy portal.");
@@ -793,6 +951,22 @@ export default function App() {
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.meta}>API base URL</Text>
+        <Text style={styles.metaSmall}>
+          Android emulator: use {`http://10.0.2.2:3000/api`}. Real phone: use your PC IP like {`http://192.168.x.x:3000/api`}.
+        </Text>
+        <TextInput
+          style={styles.input}
+          value={apiBaseDraft}
+          onChangeText={setApiBaseDraft}
+          placeholder={defaultApiBase}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Pressable style={styles.primaryButton} onPress={saveApiBase}>
+          <Text style={styles.primaryButtonText}>Save API URL</Text>
+        </Pressable>
+
         <Text style={styles.scanKicker}>Consumer app</Text>
         <Text style={styles.scanTitle}>Home, scanner, report, and history.</Text>
         <Text style={styles.scanBody}>
@@ -802,8 +976,11 @@ export default function App() {
           <Pressable style={consumerScreen === "home" ? styles.chipActive : styles.chip} onPress={() => setConsumerScreen("home")}>
             <Text style={consumerScreen === "home" ? styles.chipTextActive : styles.chipText}>Home</Text>
           </Pressable>
-          <Pressable style={consumerScreen === "scanner" ? styles.chipActive : styles.chip} onPress={() => setConsumerScreen("scanner")}>
-            <Text style={consumerScreen === "scanner" ? styles.chipTextActive : styles.chipText}>Scanner</Text>
+          <Pressable style={consumerScreen === "food" ? styles.chipActive : styles.chip} onPress={() => setConsumerScreen("food")}>
+            <Text style={consumerScreen === "food" ? styles.chipTextActive : styles.chipText}>Scan Food</Text>
+          </Pressable>
+          <Pressable style={consumerScreen === "drug" ? styles.chipActive : styles.chip} onPress={() => setConsumerScreen("drug")}>
+            <Text style={consumerScreen === "drug" ? styles.chipTextActive : styles.chipText}>Scan Drug</Text>
           </Pressable>
           <Pressable style={consumerScreen === "history" ? styles.chipActive : styles.chip} onPress={() => setConsumerScreen("history")}>
             <Text style={consumerScreen === "history" ? styles.chipTextActive : styles.chipText}>History</Text>
@@ -819,6 +996,16 @@ export default function App() {
         </View>
         {consumerScreen === "home" ? (
           <>
+            <Text style={styles.meta}>Welcome: {session?.user.fullName || session?.user.email || "Guest"}</Text>
+            <Text style={styles.meta}>Scan It. Trace It. Trust It.</Text>
+            <View style={styles.rowWrap}>
+              <Pressable style={styles.button} onPress={() => setConsumerScreen("food")}>
+                <Text style={styles.buttonText}>Scan Food</Text>
+              </Pressable>
+              <Pressable style={styles.button} onPress={() => setConsumerScreen("drug")}>
+                <Text style={styles.buttonText}>Scan Drug</Text>
+              </Pressable>
+            </View>
             <Text style={styles.meta}>Food result: {scanResult?.status ?? "None yet"}</Text>
             <Text style={styles.meta}>Drug result: {drugScanResult?.status ?? "None yet"}</Text>
             <Text style={styles.meta}>Saved scans: {consumerHistory.length}</Text>
@@ -895,21 +1082,61 @@ export default function App() {
         ) : null}
       </View>
 
+      {showConsumerApp && consumerScreen === "food" ? (
       <View style={styles.scanCard}>
         <Text style={styles.scanKicker}>Consumer scan</Text>
-        <Text style={styles.scanTitle}>Enter a code and get the result.</Text>
+        <Text style={styles.scanTitle}>Scan a QR code with the camera.</Text>
         <Text style={styles.scanBody}>
-          The backend checks the batch, manufacturer, and recall status, then returns a simple safety summary.
+          Point the camera at a FoodTrace GH QR code. If the camera cannot read it, use the text fallback below.
         </Text>
+        <View style={styles.cameraFrame}>
+          {cameraPermission?.granted ? (
+            <CameraView
+              style={styles.camera}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+              onBarcodeScanned={scannerPaused || scanLoading ? undefined : handleBarcodeScanned}
+            />
+          ) : (
+            <View style={styles.cameraPermissionBox}>
+              <Text style={styles.cameraPermissionText}>
+                {cameraPermission === null
+                  ? "Requesting camera permission..."
+                  : "Camera permission is needed to scan QR codes."}
+              </Text>
+              <Pressable style={styles.sampleButton} onPress={() => void requestCameraPermission()}>
+                <Text style={styles.sampleButtonText}>Grant camera access</Text>
+              </Pressable>
+            </View>
+          )}
+          <View style={styles.cameraOverlay}>
+            <Text style={styles.cameraOverlayTitle}>
+              {scannerPaused ? "Scanner paused" : scanLoading ? "Scanning..." : "Live camera ready"}
+            </Text>
+            <Text style={styles.cameraOverlayText}>
+              {scannerPaused
+                ? "We paused the camera briefly after a successful scan."
+                : "Hold the QR code inside the frame to read it."}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.rowWrap}>
+          <Pressable style={styles.sampleButton} onPress={() => setScannerPaused((value) => !value)}>
+            <Text style={styles.sampleButtonText}>{scannerPaused ? "Resume scanner" : "Pause scanner"}</Text>
+          </Pressable>
+          <Pressable style={styles.sampleButton} onPress={() => void requestCameraPermission()}>
+            <Text style={styles.sampleButtonText}>Refresh permission</Text>
+          </Pressable>
+        </View>
         <TextInput
-          placeholder="FT-QR-1001"
+          placeholder="Fallback code or QR URL"
           placeholderTextColor="#748089"
           style={styles.scanInput}
           value={scanCode}
           onChangeText={setScanCode}
         />
         <Pressable style={[styles.button, { marginTop: 12 }]} onPress={() => void scanProduct()} disabled={scanLoading}>
-          <Text style={styles.buttonText}>{scanLoading ? "Scanning..." : "Scan product"}</Text>
+          <Text style={styles.buttonText}>{scanLoading ? "Scanning..." : "Use fallback scan"}</Text>
         </Pressable>
         <View style={styles.sampleRow}>
           {sampleCodes.map((code) => (
@@ -973,7 +1200,9 @@ export default function App() {
           <Text style={styles.status}>{reportStatusText}</Text>
         </View>
       </View>
+      ) : null}
 
+      {isFarmer ? (
       <View style={styles.foodCard}>
         <Text style={styles.scanKicker}>Food module</Text>
         <Text style={styles.scanTitle}>Farmer portal and logging.</Text>
@@ -1045,7 +1274,9 @@ export default function App() {
           </View>
         ) : null}
       </View>
+      ) : null}
 
+      {isManufacturer ? (
       <View style={styles.foodCard}>
         <Text style={styles.scanKicker}>Manufacturer portal</Text>
         <Text style={styles.scanTitle}>Batch creation and recall controls.</Text>
@@ -1095,7 +1326,9 @@ export default function App() {
           </View>
         ) : null}
       </View>
+      ) : null}
 
+      {isRegulator ? (
       <View style={styles.foodCard}>
         <Text style={styles.scanKicker}>Regulator dashboard</Text>
         <Text style={styles.scanTitle}>Oversight and emergency recall.</Text>
@@ -1150,13 +1383,19 @@ export default function App() {
           </View>
         ) : null}
       </View>
+      ) : null}
 
+      {(showConsumerApp && consumerScreen === "drug") || isPharmacist ? (
       <View style={styles.foodCard}>
         <Text style={styles.scanKicker}>Drug module</Text>
-        <Text style={styles.scanTitle}>Pharmacy registration, batches, and drug scans.</Text>
+        <Text style={styles.scanTitle}>{isPharmacist ? "Pharmacy registration, batches, and drug scans." : "Drug QR scan."}</Text>
         <Text style={styles.scanBody}>
-          This module is split into a pharmacist-only workflow for registering pharmacies and logging drug batches, plus a public drug QR scan.
+          {isPharmacist
+            ? "Register the pharmacy, log drug records and batches, generate QR codes, and scan public drug QR labels."
+            : "Scan a medicine QR code to check approval, expiry, recall status, and the recommended action."}
         </Text>
+        {isPharmacist ? (
+        <>
         <View style={styles.rowWrap}>
           <Pressable style={styles.button} onPress={() => void loadPharmacyDashboard()}>
             <Text style={styles.buttonText}>Load pharmacy</Text>
@@ -1174,6 +1413,8 @@ export default function App() {
             <Text style={styles.sampleButtonText}>Issue recall</Text>
           </Pressable>
         </View>
+        </>
+        ) : null}
         <TextInput placeholder="Drug QR code" placeholderTextColor="#748089" style={styles.input} value={drugScanCode} onChangeText={setDrugScanCode} />
         <Pressable style={styles.button} onPress={() => void scanDrug()}>
           <Text style={styles.buttonText}>Scan drug</Text>
@@ -1193,7 +1434,9 @@ export default function App() {
             <Text style={styles.meta}>{drugScanResult.recommendedAction}</Text>
           </View>
         ) : null}
-        <Text style={styles.status}>{pharmacyStatus}</Text>
+        {isPharmacist ? <Text style={styles.status}>{pharmacyStatus}</Text> : null}
+        {isPharmacist ? (
+        <>
         <TextInput placeholder="Business name" placeholderTextColor="#748089" style={styles.input} value={businessName} onChangeText={setBusinessName} />
         <TextInput placeholder="Pharmacy council number" placeholderTextColor="#748089" style={styles.input} value={gpcNumber} onChangeText={setGpcNumber} />
         <TextInput placeholder="District" placeholderTextColor="#748089" style={styles.input} value={pharmacyDistrict} onChangeText={setPharmacyDistrict} />
@@ -1237,7 +1480,9 @@ export default function App() {
             </Pressable>
           ))}
         </View>
-        {pharmacyDashboard ? (
+        </>
+        ) : null}
+        {isPharmacist && pharmacyDashboard ? (
           <View style={styles.resultCard}>
             <Text style={styles.resultTitle}>Pharmacy metrics</Text>
             <Text style={styles.meta}>Drugs: {pharmacyDashboard.metrics.drugs}</Text>
@@ -1251,6 +1496,7 @@ export default function App() {
           </View>
         ) : null}
       </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -1429,6 +1675,48 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
+  cameraFrame: {
+    marginTop: 10,
+    borderRadius: 24,
+    overflow: "hidden",
+    backgroundColor: "#05080b",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    minHeight: 280,
+  },
+  camera: {
+    width: "100%",
+    height: 280,
+  },
+  cameraPermissionBox: {
+    minHeight: 280,
+    padding: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    backgroundColor: "#0b0f13",
+  },
+  cameraPermissionText: {
+    color: "#d0dbd7",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  cameraOverlay: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: "rgba(5,8,11,0.9)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.08)",
+  },
+  cameraOverlayTitle: {
+    color: "#f4f4ef",
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  cameraOverlayText: {
+    color: "#b4c3be",
+    lineHeight: 18,
+  },
   sampleRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1482,5 +1770,22 @@ const styles = StyleSheet.create({
   meta: {
     color: "#d0dbd7",
     marginBottom: 4,
+  },
+  metaSmall: {
+    color: "rgba(208,219,215,0.75)",
+    marginBottom: 10,
+    lineHeight: 18,
+    fontSize: 12,
+  },
+  primaryButton: {
+    backgroundColor: "#c4f1db",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  primaryButtonText: {
+    color: "#113629",
+    fontWeight: "700",
   },
 });

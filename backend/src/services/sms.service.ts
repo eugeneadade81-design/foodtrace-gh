@@ -1,5 +1,6 @@
 import type { SmsRequest, SmsResponse } from "@foodtrace/shared";
 import { logFarmInputByPhone } from "./traceability.service";
+import { lookupDrugProduct, lookupFoodProduct } from "./traceability.service";
 
 function parsePesticideMessage(text: string) {
   const trimmed = text.trim();
@@ -36,6 +37,18 @@ function normalizeDateInput(value: string) {
 }
 
 export async function handleSmsCallback(request: SmsRequest): Promise<SmsResponse> {
+  const trimmed = request.text.trim();
+  const directCode = trimmed.replace(/^CHECK\s+/i, "").trim().toUpperCase();
+  if (/^FT-QR-[A-Z0-9-]+$/.test(directCode)) {
+    const lookup = await lookupFoodProduct(directCode);
+    return { response: lookup.found ? lookup.plainText ?? lookup.result.summary : lookup.result.summary };
+  }
+
+  if (/^DR-QR-[A-Z0-9-]+$/.test(directCode)) {
+    const lookup = await lookupDrugProduct(directCode);
+    return { response: lookup.found ? lookup.plainText ?? lookup.result.summary : lookup.result.summary };
+  }
+
   const parsed = parsePesticideMessage(request.text);
   if (!parsed) {
     return {
@@ -64,4 +77,3 @@ export async function handleSmsCallback(request: SmsRequest): Promise<SmsRespons
     response: `${warning}Logged for ${outcome.cropType}. Safe harvest date: ${outcome.safeHarvestDate}. FoodTrace GH.`,
   };
 }
-
