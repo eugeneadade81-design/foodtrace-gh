@@ -1,6 +1,25 @@
 const fs = require("node:fs/promises");
+const syncFs = require("node:fs");
 const path = require("node:path");
 const { Client } = require("pg");
+const dotenv = require("dotenv");
+
+{
+  let dir = process.cwd();
+  let loaded = false;
+  for (let i = 0; i < 8; i += 1) {
+    const envPath = path.join(dir, ".env");
+    if (syncFs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
+      loaded = true;
+      break;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  if (!loaded) dotenv.config();
+}
 
 async function run() {
   const migrationsDir = __dirname;

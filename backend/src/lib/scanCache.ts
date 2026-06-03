@@ -89,6 +89,19 @@ export async function setCachedJson(key: string, value: unknown, ttlSeconds: num
   await writeMemoryCache(key, payload, ttlSeconds);
 }
 
+export async function deleteCachedJson(key: string) {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      await redis.del(key);
+    } catch {
+      // Ignore Redis failures and still clear the in-memory fallback.
+    }
+  }
+
+  memoryCache.delete(key);
+}
+
 export async function checkRedisConnection() {
   const redis = getRedisClient();
   if (!redis) {

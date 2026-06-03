@@ -4,6 +4,7 @@ import path from "path";
 import { z } from "zod";
 import QRCode from "qrcode";
 import { pool } from "../config/db";
+import { deleteCachedJson } from "../lib/scanCache";
 import { requireAuth, type AuthenticatedRequest, requireRole } from "../middleware/auth";
 import type {
   CreateManufacturerProfileRequest,
@@ -163,6 +164,11 @@ async function ensureQrImage(codeString: string) {
     await QRCode.toFile(filePath, codeString, { width: 512, margin: 2 });
   }
   return `/uploads/qrcodes/${filename}`;
+}
+
+async function clearBatchScanCache(batchId: string) {
+  const codes = await pool.query(`SELECT code_string FROM qr_codes WHERE batch_id = $1`, [batchId]);
+  await Promise.all(codes.rows.map((row) => deleteCachedJson(`foodtrace:scan:${row.code_string}`)));
 }
 
 router.use(requireAuth);
@@ -354,6 +360,7 @@ router.post("/recalls", async (req: AuthenticatedRequest, res) => {
     `UPDATE qr_codes SET status = 'recalled' WHERE batch_id = $1`,
     [body.batchId]
   );
+  await clearBatchScanCache(body.batchId);
 
   const recall = await pool.query(
     `
@@ -408,6 +415,7 @@ router.post("/batches/:id/recall", async (req: AuthenticatedRequest, res) => {
   );
 
   await pool.query(`UPDATE qr_codes SET status = 'recalled' WHERE batch_id = $1`, [body.batchId]);
+  await clearBatchScanCache(body.batchId);
 
   const recall = await pool.query(
     `
