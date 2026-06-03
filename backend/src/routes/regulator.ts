@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../config/db";
+import { deleteCachedJson } from "../lib/scanCache";
 import { requireAuth, type AuthenticatedRequest, requireRole } from "../middleware/auth";
 import type {
   RegulatorAnalyticsSummary,
@@ -37,6 +38,11 @@ async function findBatchDomain(batchId: string): Promise<"food" | "drug" | null>
   }
 
   return null;
+}
+
+async function clearFoodBatchScanCache(batchId: string) {
+  const codes = await pool.query(`SELECT code_string FROM qr_codes WHERE batch_id = $1`, [batchId]);
+  await Promise.all(codes.rows.map((row) => deleteCachedJson(`foodtrace:scan:${row.code_string}`)));
 }
 
 async function loadDashboard(): Promise<RegulatorDashboardResponse> {
@@ -232,6 +238,7 @@ router.post("/recalls", async (req: AuthenticatedRequest, res) => {
       [body.batchId, body.reason]
     );
     await pool.query(`UPDATE qr_codes SET status = 'recalled' WHERE batch_id = $1`, [body.batchId]);
+    await clearFoodBatchScanCache(body.batchId);
 
     const recall = await pool.query(
       `
