@@ -1,0 +1,29 @@
+server:
+  port: ${PORT:3000}
+
+spring:
+  application:
+    name: foodtrace-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/foodtrace}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 10MB
+
+foodtrace:
+  jwt-secret: ${JWT_SECRET:dev-foodtrace-secret-change-me}
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  mobile-origins: ${MOBILE_ORIGINS:}
+  uploads-dir: ${UPLOADS_DIR:uploads}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
