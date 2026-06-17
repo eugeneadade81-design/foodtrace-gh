@@ -11,5 +11,6 @@ ios/
 !.env.example
 *.log
 *.tsbuildinfo
+target/
 Thumbs.db
 Desktop.ini
