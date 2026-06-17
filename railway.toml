@@ -1,9 +1,9 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm run build:backend"
+buildCommand = "cd backend && mvn -q package -DskipTests"
 
 [deploy]
-startCommand = "node backend/dist/app.js"
-healthcheckPath = "/health"
+startCommand = "java -jar backend/target/foodtrace-api-0.1.0.jar"
+healthcheckPath = "/actuator/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
