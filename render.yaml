@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: foodtrace-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: foodtrace-db
+          property: connectionString
+      - key: JWT_SECRET
+        value: foodtrace-gh-super-secret-jwt-2026
+      - key: FRONTEND_URL
+        value: https://foodtrace-gh.onrender.com
+      - key: MOBILE_ORIGINS
+        value: "*"
+      - key: PORT
+        value: "3000"
+
+databases:
+  - name: foodtrace-db
+    databaseName: foodtrace
+    user: foodtrace
