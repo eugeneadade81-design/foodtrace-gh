@@ -3,6 +3,7 @@
     "name": "FoodTrace GH",
     "slug": "foodtrace-gh",
     "version": "0.1.0",
+    "icon": "./assets/icon.svg",
     "orientation": "portrait",
     "scheme": "foodtracegh",
     "platforms": [
@@ -18,6 +19,11 @@
     },
     "android": {
       "package": "gh.foodtrace.app",
+      "icon": "./assets/icon.svg",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.svg",
+        "backgroundColor": "#e8f5e9"
+      },
       "permissions": [
         "CAMERA",
         "INTERNET",
