@@ -21,6 +21,7 @@ foodtrace:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
   mobile-origins: ${MOBILE_ORIGINS:}
   uploads-dir: ${UPLOADS_DIR:uploads}
+  expose-otp: ${EXPOSE_OTP:false}
 
 management:
   endpoints:

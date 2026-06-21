@@ -54,6 +54,39 @@ type QRScannerScreenProps = {
 const FOOD_SAMPLE_CODES = ["FT-QR-1001", "FT-QR-2002", "FT-QR-4004"];
 const DRUG_SAMPLE_CODE = "DR-QR-1001";
 
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(
+      response.ok
+        ? "The server returned an empty response."
+        : `The server returned ${response.status} ${response.statusText || "without details"}. Check the API URL and backend logs.`
+    );
+  }
+
+  try {
+    const data = JSON.parse(text) as T & {
+      error?: unknown;
+      message?: unknown;
+      detail?: unknown;
+      title?: unknown;
+    };
+
+    if (!response.ok) {
+      const message = [data.error, data.message, data.detail, data.title].find((value) => typeof value === "string");
+      throw new Error(typeof message === "string" ? message : `Request failed with status ${response.status}.`);
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error && !error.message.includes("Unexpected")) {
+      throw error;
+    }
+    throw new Error(`The server returned a response the app could not read. Status: ${response.status}.`);
+  }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
@@ -153,7 +186,7 @@ export function QRScannerScreen({
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
     const response = await fetch(endpoint, { headers });
-    const data = (await response.json()) as
+    const data = (await readJsonResponse(response)) as
       | { result: ProductScanResult }
       | { result: DrugScanResult }
       | { error?: unknown };

@@ -25,6 +25,39 @@ import type { DrugScanResult, ProductScanResult, SpeechSummaryResponse } from "@
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(
+      response.ok
+        ? "The server returned an empty response."
+        : `The server returned ${response.status} ${response.statusText || "without details"}. Check the API URL and backend logs.`
+    );
+  }
+
+  try {
+    const data = JSON.parse(text) as T & {
+      error?: unknown;
+      message?: unknown;
+      detail?: unknown;
+      title?: unknown;
+    };
+
+    if (!response.ok) {
+      const message = [data.error, data.message, data.detail, data.title].find((value) => typeof value === "string");
+      throw new Error(typeof message === "string" ? message : `Request failed with status ${response.status}.`);
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error && !error.message.includes("Unexpected")) {
+      throw error;
+    }
+    throw new Error(`The server returned a response the app could not read. Status: ${response.status}.`);
+  }
+}
+
 type ScanResult = ProductScanResult | DrugScanResult;
 
 type SafetyResultScreenProps = {
@@ -122,7 +155,7 @@ export function SafetyResultScreen({
         body: JSON.stringify({ text, language: scanLanguage }),
       });
 
-      const data = (await response.json()) as SpeechSummaryResponse & {
+      const data = (await readJsonResponse(response)) as SpeechSummaryResponse & {
         error?: unknown;
       };
 

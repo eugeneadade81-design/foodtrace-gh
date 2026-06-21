@@ -7,5 +7,6 @@ public record AppProperties(
     String jwtSecret,
     String frontendUrl,
     String mobileOrigins,
-    String uploadsDir) {
+    String uploadsDir,
+    boolean exposeOtp) {
 }

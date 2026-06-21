@@ -32,7 +32,7 @@ function resolveApiBase() {
   if (configured) return configured;
 
   if (typeof window !== "undefined" && window.location.hostname && window.location.hostname !== "localhost") {
-    return `http://${window.location.hostname}:3000/api`;
+    return `${window.location.origin}/api`;
   }
 
   return "http://localhost:3000/api";
@@ -61,6 +61,39 @@ const demoDrugCodes = [
   { code: "DR-QR-2002", label: "Prescription drug", detail: "Artesunate 50mg" },
   { code: "DR-QR-4004", label: "Banned/recalled drug", detail: "Fake Chloroquine" },
 ];
+
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(
+      response.ok
+        ? "The server returned an empty response."
+        : `The server returned ${response.status} ${response.statusText || "without details"}. Check the API URL and backend logs.`
+    );
+  }
+
+  try {
+    const data = JSON.parse(text) as T & {
+      error?: unknown;
+      message?: unknown;
+      detail?: unknown;
+      title?: unknown;
+    };
+
+    if (!response.ok) {
+      const message = [data.error, data.message, data.detail, data.title].find((value) => typeof value === "string");
+      throw new Error(typeof message === "string" ? message : `Request failed with status ${response.status}.`);
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error && !error.message.includes("Unexpected")) {
+      throw error;
+    }
+    throw new Error(`The server returned a response the app could not read. Status: ${response.status}.`);
+  }
+}
 
 type Mode = "login" | "register";
 
@@ -241,7 +274,7 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json()) as AuthResponse & { error?: unknown };
+      const data = (await readJsonResponse(response)) as AuthResponse & { error?: unknown };
 
       if (!response.ok) {
         throw new Error(getApiErrorMessage(data.error, "Authentication failed"));
@@ -276,7 +309,7 @@ function App() {
       const response = await fetch(`${apiBase}/scan/${encodeURIComponent(normalized)}`, {
         headers: session?.token ? { Authorization: `Bearer ${session.token}` } : undefined,
       });
-      const data = (await response.json()) as { result: ProductScanResult };
+      const data = (await readJsonResponse(response)) as { result: ProductScanResult };
       setScanResult(data.result);
       setScanStatus(`Scan complete: ${data.result.status}`);
     } catch (error) {
@@ -314,7 +347,7 @@ function App() {
         },
         body,
       });
-      const data = (await response.json()) as SubmitConsumerReportResponse & { error?: unknown };
+      const data = (await readJsonResponse(response)) as SubmitConsumerReportResponse & { error?: unknown };
       if (!response.ok) {
         throw new Error(typeof data.error === "string" ? data.error : "Could not submit report");
       }
@@ -337,7 +370,7 @@ function App() {
       const response = await fetch(`${apiBase}/food/dashboard`, {
         headers: { Authorization: `Bearer ${session.token}` },
       });
-      const data = (await response.json()) as { dashboard: FoodDashboardResponse; error?: unknown };
+      const data = (await readJsonResponse(response)) as { dashboard: FoodDashboardResponse; error?: unknown };
       if (!response.ok) {
         throw new Error(typeof data.error === "string" ? data.error : "Could not load dashboard");
       }
@@ -377,7 +410,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) {
       throw new Error(typeof data.error === "string" ? data.error : "Could not create farm");
     }
@@ -402,7 +435,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) {
       throw new Error(typeof data.error === "string" ? data.error : "Could not create crop cycle");
     }
@@ -430,7 +463,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) {
       throw new Error(typeof data.error === "string" ? data.error : "Could not save input log");
     }
@@ -450,7 +483,7 @@ function App() {
         marketReady: marketReadyValue,
       }),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not update market-ready flag");
     await loadFoodDashboard();
   }
@@ -466,7 +499,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { results?: unknown; error?: unknown };
+    const data = (await readJsonResponse(response)) as { results?: unknown; error?: unknown };
     if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not sync offline queue");
     setFoodStatus(`Offline queue synced: ${JSON.stringify(data.results)}`);
     await loadFoodDashboard();
@@ -483,7 +516,7 @@ function App() {
       const response = await fetch(`${apiBase}/manufacturer/dashboard`, {
         headers: { Authorization: `Bearer ${session.token}` },
       });
-      const data = (await response.json()) as { dashboard: ManufacturerDashboardResponse; error?: unknown };
+      const data = (await readJsonResponse(response)) as { dashboard: ManufacturerDashboardResponse; error?: unknown };
       if (!response.ok) {
         throw new Error(typeof data.error === "string" ? data.error : "Could not load manufacturer dashboard");
       }
@@ -517,7 +550,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) {
       throw new Error(typeof data.error === "string" ? data.error : "Could not create manufacturer profile");
     }
@@ -547,7 +580,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as CreateProductBatchResponse & { error?: unknown };
+    const data = (await readJsonResponse(response)) as CreateProductBatchResponse & { error?: unknown };
     if (!response.ok) {
       throw new Error(typeof data.error === "string" ? data.error : "Could not create batch");
     }
@@ -593,7 +626,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) {
       throw new Error(typeof data.error === "string" ? data.error : "Could not create recall");
     }
@@ -611,7 +644,7 @@ function App() {
       const response = await fetch(`${apiBase}/regulator/dashboard`, {
         headers: { Authorization: `Bearer ${session.token}` },
       });
-      const data = (await response.json()) as { dashboard: RegulatorDashboardResponse; error?: unknown };
+      const data = (await readJsonResponse(response)) as { dashboard: RegulatorDashboardResponse; error?: unknown };
       if (!response.ok) {
         throw new Error(typeof data.error === "string" ? data.error : "Could not load regulator dashboard");
       }
@@ -644,7 +677,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not update report");
     await loadRegulatorDashboard();
   }
@@ -666,7 +699,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not issue regulator recall");
     await loadRegulatorDashboard();
   }
@@ -681,7 +714,7 @@ function App() {
     setDrugScanStatus("Looking up drug...");
     try {
       const response = await fetch(`${apiBase}/drug/scan/${encodeURIComponent(normalized)}`);
-      const data = (await response.json()) as { result: DrugScanResult; error?: unknown };
+      const data = (await readJsonResponse(response)) as { result: DrugScanResult; error?: unknown };
       if (!response.ok) {
         throw new Error(typeof data.error === "string" ? data.error : "Could not scan drug");
       }
@@ -703,7 +736,7 @@ function App() {
       const response = await fetch(`${apiBase}/drug/dashboard`, {
         headers: { Authorization: `Bearer ${session.token}` },
       });
-      const data = (await response.json()) as { dashboard: DrugDashboardResponse; error?: unknown };
+      const data = (await readJsonResponse(response)) as { dashboard: DrugDashboardResponse; error?: unknown };
       if (!response.ok) {
         throw new Error(typeof data.error === "string" ? data.error : "Could not load pharmacy dashboard");
       }
@@ -734,7 +767,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not register pharmacy");
     await loadPharmacyDashboard();
   }
@@ -764,7 +797,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not create drug record");
     await loadPharmacyDashboard();
   }
@@ -794,7 +827,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as CreateDrugBatchResponse & { error?: unknown };
+    const data = (await readJsonResponse(response)) as CreateDrugBatchResponse & { error?: unknown };
     if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not create drug batch");
     setPharmacyStatus(`Drug batch created. QR: ${data.qrCode.codeString}`);
     await loadPharmacyDashboard();
@@ -815,7 +848,7 @@ function App() {
       },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { error?: unknown };
+    const data = (await readJsonResponse(response)) as { error?: unknown };
     if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not create drug recall");
     await loadPharmacyDashboard();
   }
