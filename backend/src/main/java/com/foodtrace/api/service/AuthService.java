@@ -1,5 +1,7 @@
 package com.foodtrace.api.service;
 
+import com.foodtrace.api.config.AppProperties;
+import com.foodtrace.api.dto.ApiDtos;
 import com.foodtrace.api.dto.ApiDtos.AuthResponse;
 import com.foodtrace.api.dto.ApiDtos.AuthUser;
 import com.foodtrace.api.dto.ApiDtos.LoginRequest;
@@ -10,6 +12,7 @@ import com.foodtrace.api.security.CurrentUser;
 import com.foodtrace.api.security.JwtService;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
@@ -23,15 +26,18 @@ public class AuthService {
   private final JdbcClient jdbc;
   private final JwtService jwtService;
   private final PasswordEncoder passwordEncoder;
+  private final AppProperties properties;
   private final SecureRandom random = new SecureRandom();
 
-  public AuthService(JdbcClient jdbc, JwtService jwtService, PasswordEncoder passwordEncoder) {
+  public AuthService(JdbcClient jdbc, JwtService jwtService, PasswordEncoder passwordEncoder, AppProperties properties) {
     this.jdbc = jdbc;
     this.jwtService = jwtService;
     this.passwordEncoder = passwordEncoder;
+    this.properties = properties;
   }
 
   public Map<String, Object> requestOtp(OtpRequest request) {
+    requirePresent(request.identifier(), "Identifier is required");
     Map<String, Object> user = findUserByIdentifier(request.identifier())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     String token = String.valueOf(100000 + random.nextInt(900000));
@@ -42,10 +48,18 @@ public class AuthService {
         .param("purpose", valueOrDefault(request.purpose(), "login"))
         .param("expiresAt", expiresAt)
         .update();
-    return Map.of("sent", true, "otp", token, "expiresAt", expiresAt.toString());
+    Map<String, Object> response = new LinkedHashMap<>();
+    response.put("sent", true);
+    response.put("expiresAt", expiresAt.toString());
+    if (properties.exposeOtp()) {
+      response.put("otp", token);
+    }
+    return response;
   }
 
   public AuthResponse verifyOtp(VerifyOtpRequest request) {
+    requirePresent(request.identifier(), "Identifier is required");
+    requirePresent(request.token(), "OTP token is required");
     Map<String, Object> user = findUserByIdentifier(request.identifier())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     Map<String, Object> otp = jdbc.sql("""
@@ -64,11 +78,22 @@ public class AuthService {
     if (otp.get("usedAt") != null) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "OTP already used");
     }
+    if (OffsetDateTime.parse(String.valueOf(otp.get("expiresAt"))).isBefore(OffsetDateTime.now())) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "OTP expired");
+    }
     jdbc.sql("UPDATE otp_tokens SET used_at = now() WHERE id = :id").param("id", otp.get("id")).update();
     return authResponse(user);
   }
 
   public AuthResponse register(RegisterRequest request) {
+    requirePresent(request.fullName(), "Full name is required");
+    requirePresent(request.password(), "Password is required");
+    if (blankToNull(request.phone()) == null && blankToNull(request.email()) == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phone or email is required");
+    }
+    if (!ApiDtos.USER_ROLES.contains(request.role())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported role");
+    }
     boolean exists = jdbc.sql("SELECT id FROM users WHERE (:phone IS NOT NULL AND phone = :phone) OR (:email IS NOT NULL AND email = :email) LIMIT 1")
         .param("phone", blankToNull(request.phone()))
         .param("email", blankToNull(request.email()))
@@ -95,6 +120,8 @@ public class AuthService {
   }
 
   public AuthResponse login(LoginRequest request) {
+    requirePresent(request.identifier(), "Identifier is required");
+    requirePresent(request.password(), "Password is required");
     Map<String, Object> user = jdbc.sql("""
         SELECT id, full_name, phone, email, password_hash, role, language, is_verified, is_active
         FROM users
@@ -156,6 +183,12 @@ public class AuthService {
         String.valueOf(row.getOrDefault("language", "en")),
         Boolean.TRUE.equals(row.get("isVerified")),
         Boolean.TRUE.equals(row.get("isActive")));
+  }
+
+  private static void requirePresent(String value, String message) {
+    if (value == null || value.isBlank()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+    }
   }
 
   private static String valueOrDefault(String value, String fallback) {

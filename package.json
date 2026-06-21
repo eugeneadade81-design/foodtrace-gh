@@ -3,21 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": [
-    "backend",
     "mobile",
     "web",
     "shared"
   ],
   "scripts": {
-    "dev:backend": "npm run dev --workspace backend",
-    "dev:backend:spring": "cd backend-spring && mvn spring-boot:run",
+    "dev:backend": "mvn spring-boot:run -f backend/pom.xml",
     "dev:web": "npm run dev --workspace web",
     "dev:mobile": "npm run start --workspace mobile",
     "db:migrate": "node scripts/migrations/run_migrations.cjs",
     "db:seed": "node scripts/seed/seed_dev.cjs",
-    "build": "npm run build --workspace backend",
-    "build:backend": "npm run build --workspace backend",
-    "build:backend:spring": "cd backend-spring && mvn package",
+    "build": "npm run build:web && npm run build:backend",
+    "build:backend": "mvn -q -DskipTests package -f backend/pom.xml",
     "build:web": "npm run build --workspace web",
     "typecheck": "npm run typecheck --workspaces"
   }

@@ -20,11 +20,10 @@ The medicine/pharmacy module remains available behind `VITE_ENABLE_DRUG_MODULE=t
 
 | Layer | Technology |
 | --- | --- |
-| Backend | Node.js, Express |
+| Backend | Java 21, Spring Boot |
 | Mobile | React Native, Expo |
 | Web | React, Vite |
 | Database | PostgreSQL |
-| Cache | Redis |
 | SMS | Africa's Talking |
 | Audio | Google Text-to-Speech, Expo Speech fallback |
 
@@ -49,13 +48,9 @@ The medicine/pharmacy module remains available behind `VITE_ENABLE_DRUG_MODULE=t
    npm install
    ```
 
-4. Run database migrations.
+4. Start PostgreSQL and make sure `DATABASE_URL` points to it. Spring Boot runs the Flyway migrations automatically on startup.
 
-   ```bash
-   npm run db:migrate
-   ```
-
-5. Seed demo data.
+5. Seed demo data when you need the sample accounts and QR codes.
 
    ```bash
    npm run db:seed
@@ -64,22 +59,19 @@ The medicine/pharmacy module remains available behind `VITE_ENABLE_DRUG_MODULE=t
 6. Start the backend.
 
    ```bash
-   cd backend
-   npm run dev
+   npm run dev:backend
    ```
 
 7. Start the mobile app.
 
    ```bash
-   cd mobile
-   npx expo start
+   npm run dev:mobile
    ```
 
 8. Start the web app.
 
    ```bash
-   cd web
-   npm run dev
+   npm run dev:web
    ```
 
 Default local URLs:
@@ -88,7 +80,6 @@ Default local URLs:
 - API base: `http://localhost:3000/api`
 - Web: `http://localhost:5173` or `http://127.0.0.1:5173`
 - Health check: `http://localhost:3000/health`
-
 ## Demo Accounts
 
 All seeded accounts use the password `Password123!`.

@@ -1,21 +1,28 @@
 # FoodTrace Spring Boot Backend
 
-This is the Spring Boot replacement for the current Express backend. It is scaffolded side-by-side so the existing Node backend remains available while the Java API is completed.
+This is the active FoodTrace GH backend. It is a Java 21 Spring Boot API using PostgreSQL and Flyway migrations.
 
 ## Requirements
 
 - Java 21+
-- Maven 3.9+ or the Maven wrapper once added
+- Maven 3.9+
 - PostgreSQL
 
 ## Run
 
+From the repository root:
+
 ```powershell
-cd backend-spring
+npm run dev:backend
+```
+
+Or from this folder:
+
+```powershell
 mvn spring-boot:run
 ```
 
-The API listens on `PORT` or `3000` by default and mirrors the existing frontend/mobile routes under `/api`.
+The API listens on `PORT` or `3000` by default and serves routes under `/api`.
 
 ## Environment
 
@@ -26,4 +33,7 @@ DATABASE_PASSWORD=postgres
 JWT_SECRET=replace-this-in-production
 FRONTEND_URL=http://localhost:5173
 MOBILE_ORIGINS=exp://localhost:8081
+EXPOSE_OTP=false
 ```
+
+Hosted `postgres://...` or `postgresql://...` URLs are converted to JDBC format during startup.
