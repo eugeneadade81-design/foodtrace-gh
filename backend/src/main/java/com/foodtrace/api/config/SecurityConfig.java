@@ -10,37 +10,27 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
   @Bean
   SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+    CorsConfiguration corsConfig = new CorsConfiguration();
+    corsConfig.addAllowedOriginPattern("*");
+    corsConfig.addAllowedMethod("*");
+    corsConfig.addAllowedHeader("*");
+    corsConfig.setAllowCredentials(false);
+    UrlBasedCorsConfigurationSource corsSource = new UrlBasedCorsConfigurationSource();
+    corsSource.registerCorsConfiguration("/**", corsConfig);
+
     return http
-        .cors(cors -> cors.configurationSource(request -> {
-          var config = new org.springframework.web.cors.CorsConfiguration();
-          config.addAllowedOriginPattern("*");
-          config.addAllowedMethod("*");
-          config.addAllowedHeader("*");
-          config.setAllowCredentials(false);
-          return config;
-        }))
+        .cors(cors -> cors.configurationSource(corsSource))
         .csrf(csrf -> csrf.disable())
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(auth -> auth
-            .requestMatchers(
-                AntPathRequestMatcher.antMatcher("/health"),
-                AntPathRequestMatcher.antMatcher("/api"),
-                AntPathRequestMatcher.antMatcher("/api/auth/**"),
-                AntPathRequestMatcher.antMatcher("/api/scan/**"),
-                AntPathRequestMatcher.antMatcher("/api/drug/scan/**"),
-                AntPathRequestMatcher.antMatcher("/api/assistant/**"),
-                AntPathRequestMatcher.antMatcher("/api/sms/**"),
-                AntPathRequestMatcher.antMatcher("/api/ussd/**"),
-                AntPathRequestMatcher.antMatcher("/uploads/**")
-            ).permitAll()
-            .anyRequest().authenticated())
+        .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
   }
