@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from "react-native";
 import Constants from "expo-constants";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Audio } from "expo-av";
@@ -38,6 +38,10 @@ import {
   ScanHistoryScreen,
   ConsumerReportScreen,
 } from "./src/screens";
+
+function normalizeApiBase(value: string) {
+  return value.trim().replace(/\/+$/, "");
+}
 
 function resolveDefaultApiBase() {
   const constants = Constants as typeof Constants & {
@@ -262,14 +266,26 @@ export default function App() {
     })();
   }, []);
 
-  async function saveApiBase() {
-    const next = apiBaseDraft.trim();
+  async function saveApiBase(nextValue = apiBaseDraft) {
+    const next = normalizeApiBase(nextValue);
     if (!next) return;
     setApiBase(next);
+    setApiBaseDraft(next);
     await AsyncStorage.setItem(apiBaseKey, next);
     setStatus(`API set to ${next}`);
   }
 
+  function useDetectedApiBase() {
+    const detected = resolveDefaultApiBase();
+    void saveApiBase(detected);
+  }
+
+  function getFriendlyRequestError(error: unknown, fallback: string) {
+    if (error instanceof TypeError) {
+      return `Could not reach ${apiBase}. Make sure the backend is running and your phone is on the same Wi-Fi.`;
+    }
+    return error instanceof Error ? error.message : fallback;
+  }
 
   useEffect(() => {
     const detected = resolveDefaultApiBase();
@@ -478,7 +494,7 @@ export default function App() {
       setSession(data);
       setStatus(`Signed in as ${data.user.role}`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Authentication failed");
+      setStatus(getFriendlyRequestError(error, "Authentication failed"));
     }
   }
 
@@ -1003,7 +1019,9 @@ export default function App() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#05080b" />
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.hero}>
         <Text style={styles.kicker}>FoodTrace GH</Text>
         <Text style={styles.title}>Identity and consumer scan flow.</Text>
@@ -1027,11 +1045,11 @@ export default function App() {
           autoCorrect={false}
         />
         <View style={styles.rowWrap}>
-          <Pressable style={styles.primaryButton} onPress={saveApiBase}>
+          <Pressable style={styles.primaryButton} onPress={() => void saveApiBase()}>
             <Text style={styles.primaryButtonText}>Save API URL</Text>
           </Pressable>
-          <Pressable style={styles.sampleButton} onPress={() => setApiBaseDraft(resolveDefaultApiBase())}>
-            <Text style={styles.sampleButtonText}>Auto-detect</Text>
+          <Pressable style={styles.sampleButton} onPress={useDetectedApiBase}>
+            <Text style={styles.sampleButtonText}>Use local API</Text>
           </Pressable>
         </View>
         <Text style={styles.metaSmall}>Current API: {apiBase}</Text>
@@ -1469,7 +1487,8 @@ export default function App() {
         ) : null}
       </View>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -1487,16 +1506,22 @@ function badgeStyle(status: ProductScanResult["status"]) {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#05080b",
+  },
   container: {
     flexGrow: 1,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 32,
     backgroundColor: "#05080b",
-    gap: 16,
+    gap: 14,
   },
   hero: {
     backgroundColor: "#0d3428",
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 20,
+    padding: 18,
   },
   kicker: {
     color: "#b6cfc3",
@@ -1506,7 +1531,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#f4f4ef",
-    fontSize: 30,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: "700",
     marginBottom: 8,
   },
@@ -1516,7 +1542,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: "#10161b",
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
@@ -1530,15 +1556,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#1a2228",
     borderRadius: 14,
+    minHeight: 54,
     paddingVertical: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
   segmentActive: {
     flex: 1,
     backgroundColor: "#c4f1db",
     borderRadius: 14,
+    minHeight: 54,
     paddingVertical: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
   segmentText: {
     color: "#e8ecea",
@@ -1551,9 +1581,11 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: "#0b0f13",
     borderRadius: 14,
-    paddingHorizontal: 14,
+    minHeight: 58,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     color: "#f4f4ef",
+    fontSize: 16,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
     marginBottom: 10,
@@ -1566,15 +1598,19 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: "#182028",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 999,
+    justifyContent: "center",
   },
   chipActive: {
     backgroundColor: "#c4f1db",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 999,
+    justifyContent: "center",
   },
   chipText: {
     color: "#d5ddd9",
@@ -1586,11 +1622,15 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: "#77c7a2",
     borderRadius: 16,
+    minHeight: 56,
+    paddingHorizontal: 22,
     paddingVertical: 14,
     alignItems: "center",
+    justifyContent: "center",
   },
   buttonText: {
     color: "#062014",
+    fontSize: 16,
     fontWeight: "700",
   },
   status: {
@@ -1609,14 +1649,14 @@ const styles = StyleSheet.create({
   },
   scanCard: {
     backgroundColor: "#10161b",
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
   foodCard: {
     backgroundColor: "#10161b",
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
@@ -1641,9 +1681,11 @@ const styles = StyleSheet.create({
   scanInput: {
     backgroundColor: "#0b0f13",
     borderRadius: 14,
-    paddingHorizontal: 14,
+    minHeight: 58,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     color: "#f4f4ef",
+    fontSize: 16,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
@@ -1692,24 +1734,27 @@ const styles = StyleSheet.create({
   sampleRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 10,
     marginTop: 12,
   },
   rowWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 10,
     marginTop: 12,
     marginBottom: 12,
   },
   sampleButton: {
     backgroundColor: "#182028",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 999,
+    justifyContent: "center",
   },
   sampleButtonText: {
     color: "#ecf2ef",
+    fontSize: 16,
   },
   resultCard: {
     marginTop: 16,
@@ -1752,8 +1797,11 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: "#c4f1db",
     borderRadius: 14,
+    minHeight: 54,
+    paddingHorizontal: 18,
     paddingVertical: 12,
     alignItems: "center",
+    justifyContent: "center",
     marginBottom: 14,
   },
   primaryButtonText: {
