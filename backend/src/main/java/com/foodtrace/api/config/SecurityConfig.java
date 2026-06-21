@@ -10,6 +10,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -28,7 +29,17 @@ public class SecurityConfig {
         .csrf(csrf -> csrf.disable())
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/health", "/api", "/api/auth/**", "/api/scan/**", "/api/drug/scan/**", "/api/assistant/**", "/api/sms/**", "/api/ussd/**", "/uploads/**").permitAll()
+            .requestMatchers(
+                AntPathRequestMatcher.antMatcher("/health"),
+                AntPathRequestMatcher.antMatcher("/api"),
+                AntPathRequestMatcher.antMatcher("/api/auth/**"),
+                AntPathRequestMatcher.antMatcher("/api/scan/**"),
+                AntPathRequestMatcher.antMatcher("/api/drug/scan/**"),
+                AntPathRequestMatcher.antMatcher("/api/assistant/**"),
+                AntPathRequestMatcher.antMatcher("/api/sms/**"),
+                AntPathRequestMatcher.antMatcher("/api/ussd/**"),
+                AntPathRequestMatcher.antMatcher("/uploads/**")
+            ).permitAll()
             .anyRequest().authenticated())
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
