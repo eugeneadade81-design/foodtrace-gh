@@ -17,6 +17,14 @@ public class SecurityConfig {
   @Bean
   SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
     return http
+        .cors(cors -> cors.configurationSource(request -> {
+          var config = new org.springframework.web.cors.CorsConfiguration();
+          config.addAllowedOriginPattern("*");
+          config.addAllowedMethod("*");
+          config.addAllowedHeader("*");
+          config.setAllowCredentials(false);
+          return config;
+        }))
         .csrf(csrf -> csrf.disable())
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
