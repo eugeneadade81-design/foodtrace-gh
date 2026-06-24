@@ -22,6 +22,14 @@ foodtrace:
   mobile-origins: ${MOBILE_ORIGINS:}
   uploads-dir: ${UPLOADS_DIR:uploads}
   expose-otp: ${EXPOSE_OTP:false}
+  public-api-url: ${PUBLIC_API_URL:http://localhost:3000}
+  # Africa's Talking SMS/USSD — leave blank to disable; no error is thrown when absent
+  africas-talking-api-key: ${AFRICASTALKING_API_KEY:}
+  africas-talking-username: ${AFRICASTALKING_USERNAME:sandbox}
+  africas-talking-shortcode: ${AFRICASTALKING_SHORTCODE:}
+  # Google Cloud TTS — the SDK reads GOOGLE_APPLICATION_CREDENTIALS automatically;
+  # only google-cloud-project is wired here for explicit reference in code
+  google-cloud-project: ${GOOGLE_CLOUD_PROJECT:}
 
 management:
   endpoints:

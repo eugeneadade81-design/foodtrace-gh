@@ -1,0 +1,159 @@
+package com.foodtrace.api.service;
+
+import com.foodtrace.api.security.CurrentUser;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+public class RegulatorService {
+  private final JdbcClient jdbc;
+
+  public RegulatorService(JdbcClient jdbc) {
+    this.jdbc = jdbc;
+  }
+
+  public Map<String, Object> dashboard() {
+    long farms = count("SELECT COUNT(*) FROM farms");
+    long manufacturers = count("SELECT COUNT(*) FROM manufacturers");
+    long pharmacies = count("SELECT COUNT(*) FROM pharmacies");
+    long foodRecalls = count("SELECT COUNT(*) FROM recall_events");
+    long drugRecalls = count("SELECT COUNT(*) FROM drug_recall_events");
+    long pendingReports = count("SELECT COUNT(*) FROM consumer_reports WHERE status = 'pending'");
+    long reviewingReports = count("SELECT COUNT(*) FROM consumer_reports WHERE status = 'reviewing'");
+    long resolvedReports = count("SELECT COUNT(*) FROM consumer_reports WHERE status = 'resolved'");
+    long totalScans = count("SELECT COUNT(*) FROM consumer_scans");
+    long safeScans = count("SELECT COUNT(*) FROM qr_codes WHERE status = 'active'");
+    long recalledScans = count("SELECT COUNT(*) FROM qr_codes WHERE status = 'recalled'");
+    long highRiskAlerts = count("SELECT COUNT(*) FROM product_batches WHERE recall_status = 'recalled'");
+
+    List<Map<String, Object>> reports = jdbc.sql("""
+        SELECT cr.id, cr.description, cr.district, cr.status, cr.created_at,
+               u.full_name AS reporter_name
+        FROM consumer_reports cr
+        JOIN users u ON u.id = cr.reporter_id
+        ORDER BY cr.created_at DESC LIMIT 20
+        """).query(DatabaseRowMapper::toMap).list();
+
+    List<Map<String, Object>> recalls = jdbc.sql("""
+        SELECT re.id, re.reason, re.recall_type, re.created_at,
+               pb.batch_number, pb.product_name, pb.id AS batch_id
+        FROM recall_events re
+        JOIN product_batches pb ON pb.id = re.batch_id
+        ORDER BY re.created_at DESC LIMIT 20
+        """).query(DatabaseRowMapper::toMap).list();
+
+    List<Map<String, Object>> alerts = jdbc.sql("""
+        SELECT pb.id, pb.batch_number AS title, pb.recall_reason AS description,
+               'manufacturer' AS source
+        FROM product_batches pb
+        WHERE pb.recall_status = 'recalled'
+        UNION ALL
+        SELECT db.id, db.batch_number AS title, dre.reason AS description,
+               'pharmacy' AS source
+        FROM drug_batches db
+        JOIN drug_recall_events dre ON dre.drug_batch_id = db.id
+        ORDER BY 1 DESC LIMIT 10
+        """).query(DatabaseRowMapper::toMap).list();
+
+    List<String> topDistricts = jdbc.sql("""
+        SELECT district FROM consumer_reports
+        WHERE district IS NOT NULL
+        GROUP BY district ORDER BY COUNT(*) DESC LIMIT 5
+        """).query(String.class).list();
+
+    Map<String, Object> compliance = new LinkedHashMap<>();
+    compliance.put("farms", farms);
+    compliance.put("manufacturers", manufacturers);
+    compliance.put("pharmacies", pharmacies);
+    compliance.put("foodRecalls", foodRecalls);
+    compliance.put("drugRecalls", drugRecalls);
+    compliance.put("pendingReports", pendingReports);
+    compliance.put("reviewingReports", reviewingReports);
+    compliance.put("resolvedReports", resolvedReports);
+    compliance.put("safeScans", safeScans);
+    compliance.put("cautionScans", 0);
+    compliance.put("recalledScans", recalledScans);
+
+    Map<String, Object> analytics = new LinkedHashMap<>();
+    analytics.put("totalScans", totalScans);
+    analytics.put("highRiskAlerts", highRiskAlerts);
+    analytics.put("topDistricts", topDistricts);
+
+    Map<String, Object> dashboard = new LinkedHashMap<>();
+    dashboard.put("compliance", compliance);
+    dashboard.put("analytics", analytics);
+    dashboard.put("reports", reports);
+    dashboard.put("recalls", recalls);
+    dashboard.put("alerts", alerts);
+    return Map.of("dashboard", dashboard);
+  }
+
+  public Map<String, Object> reviewReport(Map<String, Object> body) {
+    String reportId = String.valueOf(body.get("reportId"));
+    String status = String.valueOf(body.get("status"));
+    int updated = jdbc.sql("""
+        UPDATE consumer_reports SET status = CAST(:status AS report_status)
+        WHERE id = :reportId
+        """)
+        .param("reportId", UUID.fromString(reportId))
+        .param("status", status)
+        .update();
+    if (updated == 0) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found");
+    return Map.of("updated", true);
+  }
+
+  public Map<String, Object> createRecall(CurrentUser user, Map<String, Object> body) {
+    String domain = String.valueOf(body.getOrDefault("domain", "food"));
+    String batchId = String.valueOf(body.get("batchId"));
+    String reason = String.valueOf(body.getOrDefault("reason", "Regulator recall"));
+
+    if ("drug".equals(domain)) {
+      jdbc.sql("UPDATE drug_batches SET recall_status = 'recalled' WHERE id = :id")
+          .param("id", UUID.fromString(batchId)).update();
+      jdbc.sql("UPDATE drug_qr_codes SET status = 'recalled' WHERE drug_batch_id = :id")
+          .param("id", UUID.fromString(batchId)).update();
+      Map<String, Object> recall = jdbc.sql("""
+          INSERT INTO drug_recall_events (drug_batch_id, issued_by, reason)
+          VALUES (:batchId, :issuedBy, :reason)
+          RETURNING id, drug_batch_id, reason, created_at
+          """)
+          .param("batchId", UUID.fromString(batchId))
+          .param("issuedBy", user.id())
+          .param("reason", reason)
+          .query(DatabaseRowMapper::toMap).single();
+      return Map.of("recall", recall);
+    }
+
+    jdbc.sql("UPDATE product_batches SET recall_status = 'recalled', recall_reason = :reason, recalled_at = now() WHERE id = :id")
+        .param("id", UUID.fromString(batchId))
+        .param("reason", reason).update();
+    jdbc.sql("UPDATE qr_codes SET status = 'recalled' WHERE batch_id = :id")
+        .param("id", UUID.fromString(batchId)).update();
+
+    @SuppressWarnings("unchecked")
+    String[] districts = body.get("scopeDistricts") instanceof List<?> l
+        ? l.stream().map(String::valueOf).toArray(String[]::new) : new String[0];
+
+    Map<String, Object> recall = jdbc.sql("""
+        INSERT INTO recall_events (batch_id, issued_by, recall_type, reason, scope_districts)
+        VALUES (:batchId, :issuedBy, 'regulator', :reason, CAST(:districts AS text[]))
+        RETURNING id, batch_id, recall_type, reason, created_at
+        """)
+        .param("batchId", UUID.fromString(batchId))
+        .param("issuedBy", user.id())
+        .param("reason", reason)
+        .param("districts", districts)
+        .query(DatabaseRowMapper::toMap).single();
+    return Map.of("recall", recall);
+  }
+
+  private long count(String sql) {
+    return jdbc.sql(sql).query(Long.class).single();
+  }
+}

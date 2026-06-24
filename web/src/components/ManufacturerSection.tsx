@@ -175,6 +175,7 @@ export function ManufacturerSection({ session }: Props) {
               {resolveAssetUrl(latestCreatedQr.url) ? (
                 <a style={styles.linkButton} href={resolveAssetUrl(latestCreatedQr.url) ?? undefined} download>Download QR</a>
               ) : null}
+              <button type="button" style={styles.sampleButton} onClick={() => window.print()}>Print label</button>
             </div>
           </div>
           {resolveAssetUrl(latestCreatedQr.url) ? (

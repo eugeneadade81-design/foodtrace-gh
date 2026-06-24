@@ -8,5 +8,12 @@ public record AppProperties(
     String frontendUrl,
     String mobileOrigins,
     String uploadsDir,
-    boolean exposeOtp) {
+    boolean exposeOtp,
+    String publicApiUrl,
+    // Africa's Talking SMS/USSD — set AFRICASTALKING_API_KEY etc to enable
+    String africasTalkingApiKey,
+    String africasTalkingUsername,
+    String africasTalkingShortcode,
+    // Google Cloud TTS — set GOOGLE_APPLICATION_CREDENTIALS (file path) + GOOGLE_CLOUD_PROJECT
+    String googleCloudProject) {
 }

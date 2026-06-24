@@ -76,8 +76,33 @@ public class FoodController {
   }
 
   @PostMapping("/offline-sync")
-  public Map<String, Object> offlineSync(@RequestBody Map<String, Object> body) {
-    return Map.of("results", java.util.List.of(), "received", body);
+  public Map<String, Object> offlineSync(@RequestBody Map<String, Object> body, Authentication authentication) {
+    CurrentUser user = currentUser(authentication);
+    @SuppressWarnings("unchecked")
+    java.util.List<Map<String, Object>> actions = body.get("actions") instanceof java.util.List<?>
+        ? (java.util.List<Map<String, Object>>) body.get("actions")
+        : java.util.List.of();
+
+    java.util.List<Map<String, Object>> results = new java.util.ArrayList<>();
+    for (Map<String, Object> action : actions) {
+      String type = String.valueOf(action.getOrDefault("type", ""));
+      @SuppressWarnings("unchecked")
+      Map<String, Object> payload = action.get("payload") instanceof Map<?, ?>
+          ? (Map<String, Object>) action.get("payload") : java.util.Map.of();
+      try {
+        Map<String, Object> result = switch (type) {
+          case "createFarm" -> foodService.createFarm(user, payload);
+          case "createCropCycle" -> foodService.createCropCycle(user, payload);
+          case "createInputLog" -> foodService.createInputLog(user, payload);
+          case "markMarketReady" -> foodService.markReady(user, payload);
+          default -> java.util.Map.of("error", "Unknown action type: " + type);
+        };
+        results.add(java.util.Map.of("type", type, "status", "ok", "result", result));
+      } catch (Exception e) {
+        results.add(java.util.Map.of("type", type, "status", "error", "error", e.getMessage() != null ? e.getMessage() : "Unknown error"));
+      }
+    }
+    return Map.of("results", results, "processed", actions.size());
   }
 
   private CurrentUser currentUser(Authentication authentication) {
