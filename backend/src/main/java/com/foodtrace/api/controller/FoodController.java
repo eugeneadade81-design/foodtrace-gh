@@ -89,17 +89,30 @@ public class FoodController {
       @SuppressWarnings("unchecked")
       Map<String, Object> payload = action.get("payload") instanceof Map<?, ?>
           ? (Map<String, Object>) action.get("payload") : java.util.Map.of();
+      String actionId = String.valueOf(action.getOrDefault("actionId", ""));
       try {
         Map<String, Object> result = switch (type) {
           case "createFarm" -> foodService.createFarm(user, payload);
           case "createCropCycle" -> foodService.createCropCycle(user, payload);
           case "createInputLog" -> foodService.createInputLog(user, payload);
           case "markMarketReady" -> foodService.markReady(user, payload);
-          default -> java.util.Map.of("error", "Unknown action type: " + type);
+          default -> throw new IllegalArgumentException("Unknown action type: " + type);
         };
-        results.add(java.util.Map.of("type", type, "status", "ok", "result", result));
+        Object entityId = result.values().stream()
+            .filter(v -> v instanceof Map).map(v -> ((Map<?, ?>) v).get("id")).filter(v -> v != null).findFirst().orElse(null);
+        Map<String, Object> item = new HashMap<>();
+        item.put("actionId", actionId);
+        item.put("type", type);
+        item.put("ok", true);
+        item.put("entityId", entityId);
+        results.add(item);
       } catch (Exception e) {
-        results.add(java.util.Map.of("type", type, "status", "error", "error", e.getMessage() != null ? e.getMessage() : "Unknown error"));
+        Map<String, Object> item = new HashMap<>();
+        item.put("actionId", actionId);
+        item.put("type", type);
+        item.put("ok", false);
+        item.put("message", e.getMessage() != null ? e.getMessage() : "Unknown error");
+        results.add(item);
       }
     }
     return Map.of("results", results, "processed", actions.size());
