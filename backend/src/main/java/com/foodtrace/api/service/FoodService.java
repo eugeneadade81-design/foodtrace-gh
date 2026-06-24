@@ -37,8 +37,22 @@ public class FoodService {
         LIMIT 20
         """)
         .param("owner", user.id()).query(DatabaseRowMapper::toMap).list();
+    long readyCycles = cropCycles.stream().filter(c -> Boolean.TRUE.equals(c.get("marketReady"))).count();
+    java.time.LocalDate today = java.time.LocalDate.now();
+    long pendingWithdrawalCycles = cropCycles.stream().filter(c -> {
+      Object shd = c.get("safeHarvestDate");
+      if (shd == null) return false;
+      try { return java.time.LocalDate.parse(shd.toString()).isAfter(today); } catch (Exception e) { return false; }
+    }).count();
+    long overdueWithdrawalCycles = cropCycles.stream().filter(c -> {
+      Object shd = c.get("safeHarvestDate");
+      if (shd == null) return false;
+      try { return java.time.LocalDate.parse(shd.toString()).isBefore(today); } catch (Exception e) { return false; }
+    }).count();
     return Map.of("farms", farms, "cropCycles", cropCycles, "inputLogs", inputLogs,
-        "metrics", Map.of("farms", farms.size(), "cropCycles", cropCycles.size()));
+        "metrics", Map.of("farms", farms.size(), "cropCycles", cropCycles.size(),
+            "readyCycles", readyCycles, "pendingWithdrawalCycles", pendingWithdrawalCycles,
+            "overdueWithdrawalCycles", overdueWithdrawalCycles));
   }
 
   public Map<String, Object> createFarm(CurrentUser user, Map<String, Object> body) {

@@ -130,6 +130,8 @@ public class ScanService {
   private Map<String, Object> buildDrugResult(Map<String, Object> row) {
     Map<String, Object> result = buildFoodResult(row);
     result.put("title", "Verified medicine");
+    result.put("drugName", row.get("productName"));
+    result.put("manufacturerName", row.get("pharmacyName"));
     result.put("pharmacyName", row.get("pharmacyName"));
     result.put("genericName", row.get("genericName"));
     return result;
