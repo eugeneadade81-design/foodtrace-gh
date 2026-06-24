@@ -7,8 +7,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.foodtrace.api.dto.ApiDtos.AuthResponse;
+import com.foodtrace.api.dto.ApiDtos.AuthUser;
 import com.foodtrace.api.service.AuthService;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -31,9 +32,9 @@ class AuthControllerTest {
   @Test
   void register_returns_token_and_user() throws Exception {
     when(authService.register(any())).thenReturn(
-        Map.of("token", "jwt-token-here",
-            "user", Map.of("id", "abc", "role", "consumer", "fullName", "Test User",
-                "isVerified", false, "isActive", true, "language", "en")));
+        new AuthResponse("jwt-token-here",
+            new AuthUser("abc", "Test User", "+233200000001", null,
+                "consumer", "en", false, true)));
 
     mockMvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)
@@ -48,9 +49,9 @@ class AuthControllerTest {
   @Test
   void login_returns_token() throws Exception {
     when(authService.login(any())).thenReturn(
-        Map.of("token", "jwt-token-here",
-            "user", Map.of("id", "abc", "role", "farmer", "fullName", "Ama Farmer",
-                "isVerified", true, "isActive", true, "language", "en")));
+        new AuthResponse("jwt-token-here",
+            new AuthUser("abc", "Ama Farmer", "+233200000001", null,
+                "farmer", "en", true, true)));
 
     mockMvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
