@@ -3,7 +3,7 @@
     "name": "FoodTrace GH",
     "slug": "foodtrace-gh",
     "version": "0.1.0",
-    "icon": "./assets/icon.svg",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "scheme": "foodtracegh",
     "platforms": [
@@ -19,9 +19,9 @@
     },
     "android": {
       "package": "gh.foodtrace.app",
-      "icon": "./assets/icon.svg",
+      "icon": "./assets/icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.svg",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#e8f5e9"
       },
       "permissions": [
@@ -48,6 +48,11 @@
         }
       ],
       "expo-sqlite"
-    ]
+    ],
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#e8f5e9"
+    }
   }
 }
