@@ -165,10 +165,10 @@ public class CompatibilityControllers {
       }
       if (q.contains("scan") || q.contains("qr") || q.contains("how")) {
         return "Open the Scanner tab, point your camera at the QR code on the product, and FoodTrace will show you "
-            + "if the product is safe, under caution, or recalled — with a recommended action.";
+            + "if the product is safe, under caution, or recalled - with a recommended action.";
       }
-      return "To enable the full AI assistant, add your ANTHROPIC_API_KEY to the server environment. "
-          + "I can answer questions about food safety, medicine storage, expiry dates, and how to use FoodTrace GH.";
+      return "I can help with food safety, medicine storage, expiry dates, recalls, and how to use FoodTrace GH. "
+          + "Try asking about checking an expiry date, storing medicine safely, scanning a QR code, or what to do after a recall alert.";
     }
   }
 
