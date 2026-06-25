@@ -113,6 +113,7 @@ function labelForStatus(status: ProductScanResult["status"]): string {
  * concatenating title + summary + recommendedAction.
  */
 function buildSpeechText(result: ScanResult, language: "en" | "tw"): string {
+  if (language === "tw" && (result as any).audioSummaryTwi) return (result as any).audioSummaryTwi;
   if (result.audioSummary) return result.audioSummary;
   const parts = [result.title, result.summary, result.recommendedAction].filter(Boolean);
   return parts.join(" ").trim();

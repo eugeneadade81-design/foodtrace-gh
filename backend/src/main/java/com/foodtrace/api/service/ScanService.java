@@ -198,6 +198,14 @@ public class ScanService {
           : "Caution. This product has a safety concern. Check the details on screen and contact FDA Ghana if needed.";
       default -> "Good news. This product is verified and safe. No recalls or safety issues were found for this batch.";
     };
+    String audioSummaryTwi = switch (status) {
+      case "recalled" -> "Kiyinkyim. Adedie yi wɔ recall mu. Mma wo ho nka ho. "
+          + "De bɛtoo oguafo anaa bisa FDA Ghana ntɛm ara.";
+      case "caution"  -> expired
+          ? "Kiyinkyim. Adedie yi akyi da aba. Ennwe no."
+          : "Kiyinkyim. Adedie yi wɔ amaneɛ bi. Hwɛ nsɛm a ɛwɔ screen no so na bisa FDA Ghana.";
+      default -> "Ɛyɛ. Adedie yi wɔ ho nsɛm pa. Wɔasɔ ho nsɛm na ɛho hia.";
+    };
 
     Map<String, Object> result = new LinkedHashMap<>();
     result.put("codeString",       row.get("codeString"));
@@ -206,6 +214,7 @@ public class ScanService {
     result.put("title",            title);
     result.put("summary",          summary);
     result.put("audioSummary",     audioSummary);
+    result.put("audioSummaryTwi",  audioSummaryTwi);
     result.put("recommendedAction", recommendedAction);
     result.put("productName",      row.get("productName"));
     result.put("farmOrigin",       row.get("farmOrigin"));
@@ -257,6 +266,15 @@ public class ScanService {
               + "Do not use it without consulting a pharmacist or the Ghana Pharmacy Council.";
       default -> "Good news. This medicine is verified and approved. No recalls or safety issues were found.";
     };
+    String audioSummaryTwi = switch (status) {
+      case "recalled" -> "Kiyinkyim. Otogyeɛ yi wɔ recall mu. Mfa nkɔ. "
+          + "De bɛtoo otofrani anaa bisa Ghana Pharmacy Council ntɛm ara.";
+      case "caution"  -> expired
+          ? "Kiyinkyim. Otogyeɛ yi akyi da aba. Mfa nkɔ. Twa no kyene."
+          : "Kiyinkyim. Otogyeɛ yi ho nsɛm yɛ " + fdaLabel + ". "
+              + "Mfa nkɔ a woankanee otofrani anaa Ghana Pharmacy Council.";
+      default -> "Ɛyɛ. Otogyeɛ yi wɔ ho nsɛm pa na wɔasɔ ho. Ɛho hia.";
+    };
 
     Map<String, Object> result = new LinkedHashMap<>();
     result.put("codeString",        row.get("codeString"));
@@ -265,6 +283,7 @@ public class ScanService {
     result.put("title",             title);
     result.put("summary",           summary);
     result.put("audioSummary",      audioSummary);
+    result.put("audioSummaryTwi",   audioSummaryTwi);
     result.put("recommendedAction", recommendedAction);
     result.put("drugName",          row.get("productName"));
     result.put("genericName",       row.get("genericName"));
