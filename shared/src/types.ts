@@ -75,6 +75,8 @@ export interface ProductScanResult {
   statusLabel?: "GREEN" | "YELLOW" | "RED" | "NOT_FOUND";
   title: string;
   summary: string;
+  /** Speech-optimised sentence spoken automatically on the result screen. */
+  audioSummary?: string;
   productName?: string;
   farmOrigin?: string;
   batchNumber?: string;
@@ -519,6 +521,8 @@ export interface DrugScanResult {
   statusLabel?: "GREEN" | "YELLOW" | "RED" | "NOT_FOUND";
   title: string;
   summary: string;
+  /** Speech-optimised sentence spoken automatically on the result screen. */
+  audioSummary?: string;
   drugName?: string;
   batchNumber?: string;
   manufacturerName?: string;

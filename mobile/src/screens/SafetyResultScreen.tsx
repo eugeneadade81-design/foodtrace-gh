@@ -73,6 +73,8 @@ type SafetyResultScreenProps = {
   onViewHistory: () => void;
   /** Navigate to the consumer report screen. */
   onReport: () => void;
+  /** Navigate to the AI helper tab with the product pre-loaded as context. */
+  onAskAI?: (prefill: string) => void;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -105,21 +107,22 @@ function labelForStatus(status: ProductScanResult["status"]): string {
   }
 }
 
-/** Builds a short, spoken summary sentence from the result fields. */
+/**
+ * Builds the spoken summary sentence.
+ * Prefers the backend-crafted `audioSummary` field; falls back to
+ * concatenating title + summary + recommendedAction.
+ */
 function buildSpeechText(result: ScanResult, language: "en" | "tw"): string {
-  const parts: string[] = [];
-
-  if (language === "tw") {
-    // Provide a minimal Twi prefix so Google TTS voices it correctly.
-    parts.push(`${result.title}.`);
-  } else {
-    parts.push(`${result.title}.`);
-  }
-
-  if (result.summary) parts.push(result.summary);
-  if (result.recommendedAction) parts.push(result.recommendedAction);
-
+  if (result.audioSummary) return result.audioSummary;
+  const parts = [result.title, result.summary, result.recommendedAction].filter(Boolean);
   return parts.join(" ").trim();
+}
+
+/** Builds a contextual question for the AI assistant about this scan result. */
+function buildAiPrefill(result: ScanResult): string {
+  const name = "drugName" in result && result.drugName ? result.drugName : (result as ProductScanResult).productName ?? result.title;
+  const batch = result.batchNumber ? ` (batch ${result.batchNumber})` : "";
+  return `I just scanned a product called "${name}"${batch} and got a ${result.status.toUpperCase()} result. ${result.summary} What should I do?`;
 }
 
 /** Narrows a result to check whether it carries drug-specific fields. */
@@ -136,6 +139,7 @@ export function SafetyResultScreen({
   onBack,
   onViewHistory,
   onReport,
+  onAskAI,
 }: SafetyResultScreenProps) {
   const bgColor = backgroundForStatus(result.status);
   const statusLabel = labelForStatus(result.status);
@@ -257,6 +261,12 @@ export function SafetyResultScreen({
         <Pressable style={styles.secondaryButton} onPress={() => void playSummary()}>
           <Text style={styles.secondaryButtonText}>🔊  Play audio again</Text>
         </Pressable>
+
+        {onAskAI ? (
+          <Pressable style={styles.ghostButton} onPress={() => onAskAI(buildAiPrefill(result))}>
+            <Text style={styles.ghostButtonText}>Ask AI about this product</Text>
+          </Pressable>
+        ) : null}
 
         <Pressable style={styles.ghostButton} onPress={onReport}>
           <Text style={styles.ghostButtonText}>Report a concern</Text>

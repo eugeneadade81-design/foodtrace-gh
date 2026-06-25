@@ -853,6 +853,7 @@ export default function App() {
                 onBack={() => setConsumerTab("scanner")}
                 onViewHistory={() => setConsumerTab("history")}
                 onReport={() => setConsumerTab("report")}
+                onAskAI={(prefill) => { setAiInput(prefill); setConsumerTab("ai"); }}
               />
             ) : null}
 
