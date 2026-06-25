@@ -182,8 +182,13 @@ public class CompatibilityControllers {
           .POST(HttpRequest.BodyPublishers.ofString(payload))
           .build();
       HttpResponse<String> res = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+      if (res.statusCode() != 200) {
+        throw new RuntimeException("Anthropic error " + res.statusCode() + ": " + res.body());
+      }
       JsonNode root = mapper.readTree(res.body());
-      return root.path("content").path(0).path("text").asText("I could not generate a response. Please try again.");
+      String text = root.path("content").path(0).path("text").asText("");
+      if (text.isBlank()) throw new RuntimeException("Empty response from Anthropic");
+      return text;
     }
 
     // ── Offline fallback — broad topic coverage, varied answers ───────────────
