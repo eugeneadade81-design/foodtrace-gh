@@ -33,7 +33,7 @@ public class SecurityConfig {
 
   @Bean
   @Order(2)
-  SecurityFilterChain publicScanSecurityFilterChain(HttpSecurity http) throws Exception {
+  SecurityFilterChain publicScanSecurityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
     return http
         .securityMatcher("/api/scan/**", "/api/drug/scan/**", "/api/drugs/scan/**", "/api/pharmacy/scan/**")
         .cors(cors -> cors.configurationSource(corsSource()))
@@ -44,6 +44,7 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.GET, "/**").permitAll()
             .anyRequest().authenticated())
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
   }
 
