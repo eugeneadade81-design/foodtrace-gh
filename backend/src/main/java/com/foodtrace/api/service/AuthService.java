@@ -94,13 +94,12 @@ public class AuthService {
     if (!ApiDtos.USER_ROLES.contains(request.role())) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported role");
     }
-    boolean exists = jdbc.sql("SELECT id FROM users WHERE (:phone IS NOT NULL AND phone = :phone) OR (:email IS NOT NULL AND email = :email) LIMIT 1")
-        .param("phone", blankToNull(request.phone()))
-        .param("email", blankToNull(request.email()))
-        .query(DatabaseRowMapper::toMap)
-        .optional()
-        .isPresent();
-    if (exists) {
+    String phone = blankToNull(request.phone());
+    String email = blankToNull(request.email());
+    if (phone != null && userExistsByPhone(phone)) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "User already exists");
+    }
+    if (email != null && userExistsByEmail(email)) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "User already exists");
     }
     Map<String, Object> user = jdbc.sql("""
@@ -109,8 +108,8 @@ public class AuthService {
         RETURNING id, full_name, phone, email, role, language, is_verified, is_active
         """)
         .param("fullName", request.fullName())
-        .param("phone", blankToNull(request.phone()))
-        .param("email", blankToNull(request.email()))
+        .param("phone", phone)
+        .param("email", email)
         .param("passwordHash", passwordEncoder.encode(request.password()))
         .param("role", request.role())
         .param("language", valueOrDefault(request.language(), "en"))
@@ -141,6 +140,22 @@ public class AuthService {
   public AuthUser me(String userId) {
     return findUserById(userId).map(this::toUser)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+  }
+
+  private boolean userExistsByPhone(String phone) {
+    return jdbc.sql("SELECT id FROM users WHERE phone = :phone LIMIT 1")
+        .param("phone", phone)
+        .query(DatabaseRowMapper::toMap)
+        .optional()
+        .isPresent();
+  }
+
+  private boolean userExistsByEmail(String email) {
+    return jdbc.sql("SELECT id FROM users WHERE LOWER(email) = :email LIMIT 1")
+        .param("email", email.trim().toLowerCase())
+        .query(DatabaseRowMapper::toMap)
+        .optional()
+        .isPresent();
   }
 
   private Optional<Map<String, Object>> findUserByIdentifier(String identifier) {
