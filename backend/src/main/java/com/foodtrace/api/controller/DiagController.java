@@ -22,6 +22,28 @@ public class DiagController {
     this.jdbc = jdbc;
   }
 
+  @GetMapping("/runquery")
+  public Map<String, Object> runQuery() {
+    String sql = "SELECT id, company_name, fda_registration_number, sector, subscription_tier, is_verified "
+        + "FROM manufacturers WHERE user_id = CAST(:uid AS uuid) LIMIT 1";
+    try {
+      var rows = jdbc.sql(sql)
+          .param("uid", "00000000-0000-0000-0000-000000000000")
+          .query((rs, n) -> Map.<String, Object>of("id", String.valueOf(rs.getObject("id"))))
+          .list();
+      return Map.of("ok", true, "rows", rows.size());
+    } catch (Exception ex) {
+      Throwable root = ex;
+      while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+      return Map.of(
+          "ok", false,
+          "exception", ex.getClass().getName(),
+          "message", String.valueOf(ex.getMessage()),
+          "rootClass", root.getClass().getName(),
+          "rootMessage", String.valueOf(root.getMessage()));
+    }
+  }
+
   @GetMapping("/columns")
   public Map<String, Object> columns(@RequestParam(defaultValue = "manufacturers") String table) {
     List<Map<String, Object>> cols = jdbc.sql(
