@@ -5,7 +5,7 @@ spring:
   application:
     name: foodtrace-api
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/foodtrace}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/foodtrace?stringtype=unspecified}
     username: ${DATABASE_USERNAME:postgres}
     password: ${DATABASE_PASSWORD:postgres}
   flyway:

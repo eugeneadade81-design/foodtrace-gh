@@ -41,6 +41,11 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
       }
     }
 
+    // Let PostgreSQL infer the type of String-bound parameters so values like
+    // UUIDs and enums (passed as Strings by JdbcClient) coerce correctly instead
+    // of failing with "operator does not exist: uuid = character varying".
+    params.putIfAbsent("stringtype", "unspecified");
+
     String username = null;
     String password = null;
     String userInfo = uri.getRawUserInfo();
