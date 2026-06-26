@@ -50,6 +50,13 @@ public class SchemaRepairRunner implements ApplicationRunner {
       }));
 
       try (Connection connection = dataSource.getConnection()) {
+        String databaseProduct =
+            connection.getMetaData().getDatabaseProductName().toLowerCase();
+        if (!databaseProduct.contains("postgresql")) {
+          log.info("Schema repair skipped for non-PostgreSQL database: {}", databaseProduct);
+          return;
+        }
+
         for (Resource script : scripts) {
           String sql = StreamUtils.copyToString(script.getInputStream(), StandardCharsets.UTF_8).trim();
           if (sql.isEmpty()) continue;
