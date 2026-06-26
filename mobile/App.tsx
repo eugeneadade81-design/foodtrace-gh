@@ -70,24 +70,30 @@ function resolveDefaultApiBase() {
   return Platform.OS === "android" ? "http://10.0.2.2:3000/api" : "http://localhost:3000/api";
 }
 
+/** Error that carries the HTTP status so callers can tailor the message. */
+function httpError(message: string, status: number): Error {
+  const err = new Error(message);
+  (err as Error & { status?: number }).status = status;
+  return err;
+}
+
 async function readJsonResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
   if (!text.trim()) {
-    throw new Error(
-      response.ok ? "Empty server response." : `Server error ${response.status}.`
-    );
+    if (response.ok) throw new Error("Empty server response.");
+    throw httpError(`Server error ${response.status}.`, response.status);
   }
+  let data: T & { error?: unknown; message?: unknown; detail?: unknown };
   try {
-    const data = JSON.parse(text) as T & { error?: unknown; message?: unknown; detail?: unknown };
-    if (!response.ok) {
-      const msg = [data.error, data.message, data.detail].find((v) => typeof v === "string");
-      throw new Error(typeof msg === "string" ? msg : `Request failed (${response.status}).`);
-    }
-    return data;
-  } catch (err) {
-    if (err instanceof Error && !err.message.includes("Unexpected")) throw err;
-    throw new Error(`Could not read server response (${response.status}).`);
+    data = JSON.parse(text);
+  } catch {
+    throw httpError(`Could not read server response (${response.status}).`, response.status);
   }
+  if (!response.ok) {
+    const msg = [data.error, data.message, data.detail].find((v) => typeof v === "string");
+    throw httpError(typeof msg === "string" ? msg : `Request failed (${response.status}).`, response.status);
+  }
+  return data;
 }
 
 // ─── constants ───────────────────────────────────────────────────────────────
@@ -268,12 +274,21 @@ export default function App() {
   // ── helpers ────────────────────────────────────────────────────────────────
 
   function getFriendlyError(error: unknown) {
+    // A failed fetch (no response at all) throws TypeError — almost always a
+    // connectivity problem on the device side.
     if (error instanceof TypeError) return "Could not reach the server. Check your connection.";
-    const msg = error instanceof Error ? error.message : "Something went wrong. Please try again.";
-    if (msg.toLowerCase().includes("server error") || msg.toLowerCase().includes("500")) {
-      return "Server is waking up — please wait 30 seconds and try again.";
+    const status = (error as { status?: number })?.status;
+    // Gateway/unavailable codes are what Render returns while the free instance
+    // is spinning back up from sleep.
+    if (status === 502 || status === 503 || status === 504) {
+      return "Server is waking up. Please try again shortly.";
     }
-    return msg;
+    // A genuine 500 means the request reached an awake server that then failed.
+    if (typeof status === "number" && status >= 500) {
+      return "Server error. Please try again later.";
+    }
+    // 4xx and everything else: surface the backend's own message (e.g. validation).
+    return error instanceof Error ? error.message : "Something went wrong. Please try again.";
   }
 
   function isErrorMsg(msg: string) {

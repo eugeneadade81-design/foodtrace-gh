@@ -14,3 +14,15 @@ ios/
 target/
 Thumbs.db
 Desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+
+# Generated demo artifacts (regenerate with seed_demo_data.py)
+demo_qr_codes.txt
+demo_qr_images/
+
+# Built mobile binaries (large; distribute via EAS, not git)
+*.apk
+*.aab
