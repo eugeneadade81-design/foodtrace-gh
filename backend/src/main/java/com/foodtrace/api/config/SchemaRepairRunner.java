@@ -3,13 +3,15 @@ package com.foodtrace.api.config;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
@@ -22,12 +24,13 @@ import org.springframework.util.StreamUtils;
  * user_id, the full farms/pharmacies definitions) never got applied — every
  * portal dashboard then failed with "bad SQL grammar".
  *
- * This runner re-executes the migration scripts directly through a raw JDBC
- * Statement (the PostgreSQL driver accepts multi-statement scripts, including
- * {@code DO $$ ... $$} blocks, in one execute call). Every statement in those
- * scripts is idempotent — {@code CREATE TABLE IF NOT EXISTS},
- * {@code ADD COLUMN IF NOT EXISTS}, and enum types guarded by {@code DO} blocks —
- * so running them again on an already-correct database is a harmless no-op.
+ * This runner re-executes the migration scripts directly through JDBC on
+ * startup. Every statement is split out and run individually with its own
+ * error handling, so a single failing statement can never roll back the rest
+ * (running the whole script as one batch would put it in a single implicit
+ * transaction). All statements are idempotent — {@code CREATE TABLE IF NOT
+ * EXISTS}, {@code ADD COLUMN IF NOT EXISTS}, and enum types guarded by
+ * {@code DO} blocks — so this is a harmless no-op once the schema is correct.
  */
 @Component
 public class SchemaRepairRunner implements ApplicationRunner {
@@ -56,23 +59,75 @@ public class SchemaRepairRunner implements ApplicationRunner {
           log.info("Schema repair skipped for non-PostgreSQL database: {}", databaseProduct);
           return;
         }
+        connection.setAutoCommit(true);
 
+        int applied = 0;
+        int failed = 0;
         for (Resource script : scripts) {
-          String sql = StreamUtils.copyToString(script.getInputStream(), StandardCharsets.UTF_8).trim();
-          if (sql.isEmpty()) continue;
-          try (Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-            log.info("Schema repair applied: {}", script.getFilename());
-          } catch (Exception ex) {
-            // An individual idempotent script failing should never abort startup.
-            log.warn("Schema repair skipped {} ({})", script.getFilename(), ex.getMessage());
+          String sql = StreamUtils.copyToString(script.getInputStream(), StandardCharsets.UTF_8);
+          for (String statementSql : splitStatements(sql)) {
+            String trimmed = statementSql.trim();
+            if (trimmed.isEmpty()) continue;
+            try (Statement statement = connection.createStatement()) {
+              statement.execute(trimmed);
+              applied++;
+            } catch (Exception ex) {
+              failed++;
+              log.debug("Schema repair statement skipped ({}): {}", script.getFilename(), ex.getMessage());
+            }
           }
         }
+        log.info("Schema repair complete — {} statements applied, {} skipped. Portal tables verified.", applied, failed);
       }
-      log.info("Schema repair complete — all portal tables verified.");
     } catch (Exception ex) {
       log.error("Schema repair could not run: {}", ex.getMessage());
     }
+  }
+
+  /**
+   * Splits a SQL script into individual statements on semicolons, while keeping
+   * dollar-quoted blocks ({@code $$ ... $$}, used by the migrations' {@code DO}
+   * blocks) intact so their internal semicolons are not treated as separators.
+   * Line ({@code --}) comments are stripped.
+   */
+  static List<String> splitStatements(String sql) {
+    List<String> statements = new ArrayList<>();
+    StringBuilder current = new StringBuilder();
+    boolean inDollar = false;
+    int i = 0;
+    int n = sql.length();
+    while (i < n) {
+      char c = sql.charAt(i);
+
+      // Skip -- line comments when not inside a dollar-quoted block.
+      if (!inDollar && c == '-' && i + 1 < n && sql.charAt(i + 1) == '-') {
+        int eol = sql.indexOf('\n', i);
+        if (eol < 0) break;
+        i = eol + 1;
+        continue;
+      }
+
+      // Toggle on the $$ dollar-quote delimiter (migrations use the empty tag).
+      if (c == '$' && i + 1 < n && sql.charAt(i + 1) == '$') {
+        inDollar = !inDollar;
+        current.append("$$");
+        i += 2;
+        continue;
+      }
+
+      // A semicolon at depth 0 ends a statement.
+      if (c == ';' && !inDollar) {
+        statements.add(current.toString());
+        current.setLength(0);
+        i++;
+        continue;
+      }
+
+      current.append(c);
+      i++;
+    }
+    if (!current.toString().trim().isEmpty()) statements.add(current.toString());
+    return statements;
   }
 
   /** Sorts V1, V2, ... V10 numerically rather than lexically. */
