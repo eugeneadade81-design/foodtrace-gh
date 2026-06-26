@@ -20,10 +20,13 @@ public class FoodService {
     List<Map<String, Object>> farms = jdbc.sql("SELECT id, name, district, region, crop_types, verification_status, badge_status FROM farms WHERE owner_id = :owner ORDER BY created_at DESC")
         .param("owner", user.id()).query(DatabaseRowMapper::toMap).list();
     List<Map<String, Object>> cropCycles = jdbc.sql("""
-        SELECT cc.id, cc.farm_id, cc.crop_type, cc.planting_date, cc.harvest_date, cc.market_ready, cc.safe_harvest_date
+        SELECT cc.id, cc.farm_id, cc.crop_type, cc.planting_date, cc.harvest_date, cc.market_ready,
+               MAX(il.safe_harvest_date) AS safe_harvest_date
         FROM crop_cycles cc
         JOIN farms f ON f.id = cc.farm_id
+        LEFT JOIN input_logs il ON il.crop_cycle_id = cc.id
         WHERE f.owner_id = :owner
+        GROUP BY cc.id, cc.farm_id, cc.crop_type, cc.planting_date, cc.harvest_date, cc.market_ready, cc.created_at
         ORDER BY cc.created_at DESC
         """)
         .param("owner", user.id()).query(DatabaseRowMapper::toMap).list();
