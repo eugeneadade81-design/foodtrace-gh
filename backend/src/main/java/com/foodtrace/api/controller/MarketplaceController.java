@@ -5,6 +5,7 @@ import com.foodtrace.api.service.MarketplaceService;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -61,6 +62,11 @@ public class MarketplaceController {
       @RequestBody Map<String, Object> body,
       Authentication authentication) {
     return marketplaceService.addComment(currentUser(authentication), postId, body);
+  }
+
+  @DeleteMapping("/posts/{postId}")
+  public Map<String, Object> deletePost(@PathVariable String postId, Authentication authentication) {
+    return marketplaceService.deletePost(currentUser(authentication), postId);
   }
 
   @PatchMapping("/posts/{postId}/flag")
