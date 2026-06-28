@@ -65,6 +65,8 @@ public class SecurityConfig {
             .requestMatchers("/api/regulator/**").hasRole("REGULATOR")
             .requestMatchers("/api/drug/**", "/api/drugs/**", "/api/pharmacy/**")
                 .hasAnyRole("PHARMACIST", "REGULATOR")
+            .requestMatchers("/api/marketplace/**")
+                .hasAnyRole("CONSUMER", "FARMER", "MANUFACTURER", "PHARMACIST", "REGULATOR")
             .anyRequest().authenticated()
         )
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
