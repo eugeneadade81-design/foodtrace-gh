@@ -2,9 +2,12 @@ package gh.foodtrace.analytics.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
@@ -17,9 +20,15 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "recalls")
 @Getter
+@Setter
 public class Recall {
 
+    /**
+     * DB-generated identity. Seed rows in data.sql insert explicit ids 1-5 and
+     * then RESTART the identity at 6, so API-created recalls get ids from 6 up.
+     */
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** Public reference for the recall notice, e.g. {@code RCL-2026-014}. */

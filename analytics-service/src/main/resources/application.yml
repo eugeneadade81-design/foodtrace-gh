@@ -35,6 +35,14 @@ spring:
       repositories:
         enabled: false
 
+# Evidence storage. Disabled by default so local/dev/test use the local stub
+# (no AWS needed). On AWS (Day 11) set S3_ENABLED=true + bucket/region.
+storage:
+  s3:
+    enabled: ${S3_ENABLED:false}
+    bucket: ${S3_BUCKET:foodtrace-evidence}
+    region: ${AWS_REGION:eu-west-1}
+
 logging:
   level:
     gh.foodtrace.analytics: INFO

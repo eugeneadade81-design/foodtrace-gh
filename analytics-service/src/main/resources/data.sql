@@ -72,6 +72,10 @@ INSERT INTO recalls (id, recall_code, batch_id, reason, severity, status, region
  (4, 'RCL-2025-004', 28, 'Antibiotic withdrawal period not observed before slaughter (pork).',          'MEDIUM',   'ACTIVE',    'Volta',         'FDA Ghana - V. Adjei',   TIMESTAMP '2025-09-18 13:45:00', NULL),
  (5, 'RCL-2026-005', 18, 'Histamine levels exceeding safe threshold in sea bream (cold-chain break).',  'CRITICAL', 'DRAFT',     'Central',       'FDA Ghana - E. Quayson', TIMESTAMP '2026-02-02 08:30:00', NULL);
 
+-- Seeded ids above are explicit (1-5); restart the identity so API-created
+-- recalls (Day 5) get ids from 6 upward without colliding.
+ALTER TABLE recalls ALTER COLUMN id RESTART WITH 6;
+
 -- Input logs: agricultural inputs applied per batch. The unapproved rows
 -- (approved = FALSE) are the compliance flags surfaced by findByApprovedFalse()
 -- and line up with the recall reasons above.
