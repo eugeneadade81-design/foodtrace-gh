@@ -43,6 +43,17 @@ storage:
     bucket: ${S3_BUCKET:foodtrace-evidence}
     region: ${AWS_REGION:eu-west-1}
 
+# SMS alerts via Africa's Talking. Disabled by default so dev/test use the local
+# recording stub (no credentials/network). On AWS (Day 11) set
+# SMS_ENABLED=true + AT_USERNAME/AT_API_KEY (sandbox values work for the demo).
+sms:
+  africastalking:
+    enabled: ${SMS_ENABLED:false}
+    base-url: ${AT_SMS_URL:https://api.sandbox.africastalking.com/version1/messaging}
+    username: ${AT_USERNAME:sandbox}
+    api-key: ${AT_API_KEY:}
+    sender-id: ${AT_SENDER_ID:}
+
 logging:
   level:
     gh.foodtrace.analytics: INFO

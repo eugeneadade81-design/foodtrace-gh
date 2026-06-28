@@ -1,9 +1,13 @@
 package gh.foodtrace.analytics.service;
 
+import gh.foodtrace.analytics.domain.Batch;
 import gh.foodtrace.analytics.domain.Recall;
 import gh.foodtrace.analytics.dto.CreateRecallRequest;
 import gh.foodtrace.analytics.dto.RecallDto;
+import gh.foodtrace.analytics.repo.BatchRepository;
+import gh.foodtrace.analytics.repo.FarmRepository;
 import gh.foodtrace.analytics.repo.RecallRepository;
+import gh.foodtrace.analytics.sms.SmsSender;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -23,11 +28,19 @@ public class RecallService {
 
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_RESOLVED = "RESOLVED";
+    private static final String STATUS_ACTIVE = "ACTIVE";
 
     private final RecallRepository recalls;
+    private final BatchRepository batches;
+    private final FarmRepository farms;
+    private final SmsSender sms;
 
-    public RecallService(RecallRepository recalls) {
+    public RecallService(RecallRepository recalls, BatchRepository batches,
+                         FarmRepository farms, SmsSender sms) {
         this.recalls = recalls;
+        this.batches = batches;
+        this.farms = farms;
+        this.sms = sms;
     }
 
     /** All recalls, optionally narrowed by status and/or region (case-insensitive). */
@@ -74,17 +87,43 @@ public class RecallService {
         return RecallDto.from(recalls.save(saved));
     }
 
-    /** Changes a recall's status; moving to RESOLVED stamps resolvedAt. */
+    /**
+     * Changes a recall's status; moving to RESOLVED stamps resolvedAt, and the
+     * transition into ACTIVE fires an SMS alert to the affected farmer.
+     */
     @Transactional
     public RecallDto updateStatus(Long id, String status) {
         Recall r = getEntity(id);
+        String previous = r.getStatus();
         String normalized = status.toUpperCase();
         r.setStatus(normalized);
         if (STATUS_RESOLVED.equals(normalized)) {
             r.setResolvedAt(LocalDateTime.now());
         }
-        // Day 7: when normalized.equals("ACTIVE"), notify affected farmers by SMS.
-        return RecallDto.from(recalls.save(r));
+        Recall saved = recalls.save(r);
+
+        // Only on the edge into ACTIVE (not on repeated ACTIVE saves).
+        if (STATUS_ACTIVE.equals(normalized) && !STATUS_ACTIVE.equals(previous)) {
+            notifyAffectedFarmer(saved);
+        }
+        return RecallDto.from(saved);
+    }
+
+    /** Resolves the affected farmer's phone via batch -> farm and sends the alert. */
+    private void notifyAffectedFarmer(Recall recall) {
+        Optional<String> phone = batches.findById(recall.getBatchId())
+                .map(Batch::getFarmId)
+                .flatMap(farms::findById)
+                .map(f -> f.getPhoneNumber())
+                .filter(p -> p != null && !p.isBlank());
+        if (phone.isEmpty()) {
+            return;
+        }
+        String batchCode = batches.findById(recall.getBatchId())
+                .map(Batch::getBatchCode).orElse("batch " + recall.getBatchId());
+        String message = "FoodTrace ALERT: Recall %s (%s) affecting %s. Reason: %s. Action required."
+                .formatted(recall.getRecallCode(), recall.getSeverity(), batchCode, recall.getReason());
+        sms.send(List.of(phone.get()), message);
     }
 
     private ResponseStatusException notFound(Long id) {
