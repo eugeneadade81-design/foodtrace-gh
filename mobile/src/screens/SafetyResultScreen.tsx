@@ -11,8 +11,10 @@
  * fallback through the backend) as soon as the screen mounts.
  */
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
+  Animated,
+  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -107,6 +109,20 @@ function labelForStatus(status: ProductScanResult["status"]): string {
   }
 }
 
+/** Big symbol shown inside the circular status icon. */
+function iconForStatus(status: ProductScanResult["status"]): string {
+  switch (status) {
+    case "safe":
+      return "✓";
+    case "caution":
+      return "!";
+    case "recalled":
+      return "✕";
+    default:
+      return "?";
+  }
+}
+
 /**
  * Builds the spoken summary sentence.
  * Prefers the backend-crafted `audioSummary` field; falls back to
@@ -144,6 +160,17 @@ export function SafetyResultScreen({
 }: SafetyResultScreenProps) {
   const bgColor = backgroundForStatus(result.status);
   const statusLabel = labelForStatus(result.status);
+  const statusIcon = iconForStatus(result.status);
+
+  // ── Entrance animation for the status icon ────────────────────────────────
+  const iconScale = useRef(new Animated.Value(0.6)).current;
+  const iconOpacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(iconScale, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true }),
+      Animated.timing(iconOpacity, { toValue: 1, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]).start();
+  }, [iconScale, iconOpacity]);
 
   // ── Auto-play audio on mount ──────────────────────────────────────────────
 
@@ -229,6 +256,11 @@ export function SafetyResultScreen({
       style={{ backgroundColor: bgColor }}
       contentContainerStyle={[styles.container, { backgroundColor: bgColor }]}
     >
+      {/* ── Animated status icon ── */}
+      <Animated.View style={[styles.iconCircle, { opacity: iconOpacity, transform: [{ scale: iconScale }] }]}>
+        <Text style={styles.iconText}>{statusIcon}</Text>
+      </Animated.View>
+
       {/* ── Status badge ── */}
       <View style={styles.statusBadge}>
         <Text style={styles.statusLabel}>{statusLabel}</Text>
@@ -304,6 +336,24 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 60,
     gap: 16,
+  },
+  iconCircle: {
+    alignSelf: "center",
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  iconText: {
+    color: "#ffffff",
+    fontSize: 50,
+    fontWeight: "800",
+    lineHeight: 56,
   },
   statusBadge: {
     alignSelf: "center",

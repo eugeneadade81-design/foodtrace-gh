@@ -46,6 +46,7 @@ import {
   SafetyResultScreen,
   ScanHistoryScreen,
   ConsumerReportScreen,
+  MarketplaceFeedScreen,
 } from "./src/screens";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -113,7 +114,7 @@ const roleLabels: Record<string, string> = {
 // ─── types ───────────────────────────────────────────────────────────────────
 
 type Mode = "login" | "register";
-type ConsumerTab = "home" | "scanner" | "result" | "report" | "history" | "account";
+type ConsumerTab = "home" | "scanner" | "result" | "report" | "history" | "account" | "market";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type HistoryEntry = {
   id: string; kind: "food" | "drug"; codeString: string;
@@ -409,6 +410,23 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [consumerHistory]
   );
+
+  // Verify a marketplace post's QR code: scan it and jump to the result screen.
+  async function verifyMarketplaceCode(code: string, domain: string) {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return;
+    const kind: "food" | "drug" = domain === "drug" ? "drug" : "food";
+    const path = kind === "drug" ? "drug/scan" : "scan";
+    try {
+      const response = await fetch(`${apiBase}/${path}/${encodeURIComponent(normalized)}`, {
+        headers: session?.token ? { Authorization: `Bearer ${session.token}` } : undefined,
+      });
+      const data = await readJsonResponse<{ result: ProductScanResult | DrugScanResult }>(response);
+      handleScanResult(data.result, kind);
+    } catch {
+      setConsumerTab("scanner");
+    }
+  }
 
   async function scanFoodProduct(code = scanCode) {
     const normalized = code.trim().toUpperCase();
@@ -771,7 +789,15 @@ export default function App() {
 
         {/* Screen content */}
         <View style={s.screenArea}>
-          {consumerTab === "scanner" ? (
+          {consumerTab === "market" ? (
+            <MarketplaceFeedScreen
+              apiBase={apiBase}
+              token={session.token}
+              currentUserRole={session.user.role}
+              onVerifyCode={(code, domain) => void verifyMarketplaceCode(code, domain)}
+              onCompose={() => setConsumerTab("scanner")}
+            />
+          ) : consumerTab === "scanner" ? (
             <QRScannerScreen apiBase={apiBase} token={session.token} scanLanguage={scanLanguage} onScanResult={handleScanResult} />
           ) : consumerTab === "result" && lastScanResult ? (
             <SafetyResultScreen
@@ -884,6 +910,7 @@ export default function App() {
         <View style={s.bottomNav}>
           {([
             { tab: "home" as ConsumerTab, icon: "⌂", label: "Home" },
+            { tab: "market" as ConsumerTab, icon: "▤", label: "Market" },
             { tab: "scanner" as ConsumerTab, icon: "⊡", label: "Scan" },
             { tab: "history" as ConsumerTab, icon: "◷", label: "History" },
             { tab: "account" as ConsumerTab, icon: "○", label: "Account" },

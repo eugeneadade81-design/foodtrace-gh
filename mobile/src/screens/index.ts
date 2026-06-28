@@ -15,6 +15,7 @@ export { QRScannerScreen } from "./QRScannerScreen";
 export { SafetyResultScreen } from "./SafetyResultScreen";
 export { ScanHistoryScreen } from "./ScanHistoryScreen";
 export { ConsumerReportScreen } from "./ConsumerReportScreen";
+export { MarketplaceFeedScreen } from "./MarketplaceFeedScreen";
 
 // Re-export the HistoryEntry type so App.tsx doesn't need to import it
 // from the individual file.
