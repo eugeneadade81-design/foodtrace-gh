@@ -201,6 +201,20 @@ public class MarketplaceService {
     return Map.of("post", post);
   }
 
+  public Map<String, Object> deletePost(CurrentUser user, String postId) {
+    Map<String, Object> row = jdbc.sql("SELECT seller_id FROM marketplace_posts WHERE id = CAST(:p AS uuid)")
+        .param("p", postId)
+        .query(DatabaseRowMapper::toMap)
+        .optional()
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
+    boolean owner = user.id().equals(String.valueOf(row.get("sellerId")));
+    if (!owner && !"regulator".equals(user.role())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only delete your own posts");
+    }
+    jdbc.sql("DELETE FROM marketplace_posts WHERE id = CAST(:p AS uuid)").param("p", postId).update();
+    return Map.of("deleted", true);
+  }
+
   private void ensurePostExists(String postId) {
     boolean exists = jdbc.sql("SELECT 1 FROM marketplace_posts WHERE id = CAST(:p AS uuid)")
         .param("p", postId).query(Integer.class).optional().isPresent();
