@@ -47,6 +47,7 @@ import {
   ScanHistoryScreen,
   ConsumerReportScreen,
   MarketplaceFeedScreen,
+  MarketplaceComposeScreen,
 } from "./src/screens";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -142,6 +143,8 @@ export default function App() {
 
   // consumer
   const [consumerTab, setConsumerTab] = useState<ConsumerTab>("home");
+  // seller/regulator portal: dashboard vs marketplace
+  const [portalView, setPortalView] = useState<"portal" | "market" | "compose" | "result">("portal");
   const [scanCode, setScanCode] = useState("FT-QR-1001");
   const [scanResult, setScanResult] = useState<ProductScanResult | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
@@ -390,6 +393,7 @@ export default function App() {
     setSession(null);
     setAuthStatus("");
     setConsumerTab("home");
+    setPortalView("portal");
     setFoodDashboard(null);
     setManufacturerDashboard(null);
     setRegulatorDashboard(null);
@@ -426,6 +430,23 @@ export default function App() {
     } catch {
       setConsumerTab("scanner");
     }
+  }
+
+  // Verify a marketplace QR from the seller/regulator portal: show the result
+  // screen inside the portal (these roles have no consumer bottom-nav).
+  async function verifyMarketplaceCodePortal(code: string, domain: string) {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return;
+    const kind: "food" | "drug" = domain === "drug" ? "drug" : "food";
+    const path = kind === "drug" ? "drug/scan" : "scan";
+    try {
+      const response = await fetch(`${apiBase}/${path}/${encodeURIComponent(normalized)}`, {
+        headers: session?.token ? { Authorization: `Bearer ${session.token}` } : undefined,
+      });
+      const data = await readJsonResponse<{ result: ProductScanResult | DrugScanResult }>(response);
+      setLastScanResult(data.result);
+      setPortalView("result");
+    } catch { /* stay on feed */ }
   }
 
   async function scanFoodProduct(code = scanCode) {
@@ -946,6 +967,43 @@ export default function App() {
         </Pressable>
       </View>
 
+      {portalView !== "compose" && portalView !== "result" ? (
+        <View style={s.portalTabs}>
+          <Pressable style={[s.portalTab, portalView === "portal" && s.portalTabOn]} onPress={() => setPortalView("portal")}>
+            <Text style={[s.portalTabText, portalView === "portal" && s.portalTabTextOn]}>My Portal</Text>
+          </Pressable>
+          <Pressable style={[s.portalTab, portalView === "market" && s.portalTabOn]} onPress={() => setPortalView("market")}>
+            <Text style={[s.portalTabText, portalView === "market" && s.portalTabTextOn]}>Marketplace</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {portalView === "market" ? (
+        <MarketplaceFeedScreen
+          apiBase={apiBase}
+          token={session.token}
+          currentUserRole={session.user.role}
+          onVerifyCode={(code, domain) => void verifyMarketplaceCodePortal(code, domain)}
+          onCompose={() => setPortalView("compose")}
+        />
+      ) : portalView === "compose" ? (
+        <MarketplaceComposeScreen
+          apiBase={apiBase}
+          token={session.token}
+          role={session.user.role}
+          onPosted={() => setPortalView("market")}
+          onCancel={() => setPortalView("market")}
+        />
+      ) : portalView === "result" && lastScanResult ? (
+        <SafetyResultScreen
+          result={lastScanResult}
+          scanLanguage={scanLanguage}
+          apiBase={apiBase}
+          onBack={() => setPortalView("market")}
+          onViewHistory={() => setPortalView("market")}
+          onReport={() => setPortalView("market")}
+        />
+      ) : (
       <ScrollView contentContainerStyle={s.scrollPad} keyboardShouldPersistTaps="handled">
         <View style={s.portalHero}>
           <Text style={s.heroKicker}>{portalTitle.toUpperCase()} PORTAL</Text>
@@ -1194,6 +1252,7 @@ export default function App() {
           </>
         ) : null}
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -1294,6 +1353,11 @@ const s = StyleSheet.create({
 
   // portal hero
   portalHero: { backgroundColor: "#0d3428", borderRadius: 20, padding: 20, marginBottom: 4 },
+  portalTabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
+  portalTab: { flex: 1, alignItems: "center", paddingVertical: 9, borderRadius: 10, borderWidth: 0.5, borderColor: "rgba(119,199,162,0.3)" },
+  portalTabOn: { backgroundColor: "#77c7a2", borderColor: "#77c7a2" },
+  portalTabText: { color: "#a9b8b1", fontSize: 13, fontWeight: "600" },
+  portalTabTextOn: { color: "#05080b" },
 
   // metrics
   metricGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 14 },
