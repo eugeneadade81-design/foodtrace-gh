@@ -29,6 +29,19 @@ final class DatabaseRowMapper {
     if (value instanceof LocalDate date) {
       return date.toString();
     }
+    // PostgreSQL arrays (e.g. text[] hashtags, crop_types) come back as a
+    // java.sql.Array the JSON serializer can't walk — unwrap to a plain List.
+    if (value instanceof java.sql.Array sqlArray) {
+      try {
+        Object array = sqlArray.getArray();
+        if (array instanceof Object[] objects) {
+          return java.util.Arrays.asList(objects);
+        }
+        return array;
+      } catch (SQLException ex) {
+        return java.util.List.of();
+      }
+    }
     return value;
   }
 
