@@ -1,10 +1,59 @@
-/**
- * Dashboard landing. KPI cards and Recharts visualizations get wired to the
- * /api/analytics endpoints on Day 9; for now this is the placeholder shell so
- * routing and the protected layout are demoable.
- */
+import { useCallback, useEffect, useState } from 'react'
+import {
+  fetchBatchesByStatus,
+  fetchFarmsByRegion,
+  fetchRecallsByMonth,
+  fetchSummary,
+} from '../api/analytics'
+import KpiCard from '../components/KpiCard'
+import BatchesByStatusBar from '../components/charts/BatchesByStatusBar'
+import RecallsByMonthLine from '../components/charts/RecallsByMonthLine'
+import FarmsByRegionPie from '../components/charts/FarmsByRegionPie'
+
 export default function Dashboard() {
-  const placeholders = ['Total batches', 'Active recalls', 'Registered farms', 'Citizen reports']
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [summary, setSummary] = useState(null)
+  const [byStatus, setByStatus] = useState([])
+  const [byMonth, setByMonth] = useState([])
+  const [byRegion, setByRegion] = useState([])
+
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    Promise.all([
+      fetchSummary(),
+      fetchBatchesByStatus(),
+      fetchRecallsByMonth(),
+      fetchFarmsByRegion(),
+    ])
+      .then(([s, status, month, region]) => {
+        setSummary(s)
+        setByStatus(status)
+        setByMonth(month)
+        setByRegion(region)
+      })
+      .catch((e) => setError(e.response?.data?.message || e.message || 'Failed to load analytics'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  if (loading) {
+    return <div className="panel muted">Loading analytics…</div>
+  }
+
+  if (error) {
+    return (
+      <div className="panel">
+        <p className="form-error">Could not load analytics: {error}</p>
+        <p className="muted">Is the backend running at the configured API URL?</p>
+        <button type="button" className="btn-ghost" onClick={load}>Retry</button>
+      </div>
+    )
+  }
 
   return (
     <section>
@@ -12,16 +61,25 @@ export default function Dashboard() {
       <p className="page-sub">National food-safety overview</p>
 
       <div className="kpi-grid">
-        {placeholders.map((label) => (
-          <div className="kpi-card" key={label}>
-            <span className="kpi-value">—</span>
-            <span className="kpi-label">{label}</span>
-          </div>
-        ))}
+        <KpiCard label="Total batches" value={summary.totalBatches} accent="#137547" />
+        <KpiCard label="Active recalls" value={summary.activeRecalls} accent="#c1121f" />
+        <KpiCard label="Registered farms" value={summary.totalFarms} accent="#f2b705" />
+        <KpiCard label="Compliance flags" value={summary.complianceFlags} accent="#e08e0b" />
       </div>
 
-      <div className="panel">
-        <p className="muted">Charts arrive on Day 9 (Recharts wired to the analytics API).</p>
+      <div className="chart-grid">
+        <div className="panel">
+          <h2 className="panel-title">Batches by status</h2>
+          <BatchesByStatusBar data={byStatus} />
+        </div>
+        <div className="panel">
+          <h2 className="panel-title">Recalls by month</h2>
+          <RecallsByMonthLine data={byMonth} />
+        </div>
+        <div className="panel">
+          <h2 className="panel-title">Farms by region</h2>
+          <FarmsByRegionPie data={byRegion} />
+        </div>
       </div>
     </section>
   )
