@@ -1,0 +1,28 @@
+# AWS Amplify Hosting build spec for the FoodTrace regulator dashboard.
+#
+# In the Amplify console, set this subfolder as the app root (Monorepo →
+# app root = regulator-dashboard) so Amplify reads this file and the paths
+# below are relative to it.
+#
+# Required environment variable (set in Amplify → Hosting → Environment variables):
+#   VITE_API_BASE_URL = https://<elastic-beanstalk-env-url>
+# Vite inlines VITE_* vars at build time, so it MUST be present before `npm run build`.
+#
+# After the first deploy, add the Amplify domain to the backend CORS allow-list:
+#   eb setenv CORS_ALLOWED_ORIGINS=https://<amplify-domain>
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
