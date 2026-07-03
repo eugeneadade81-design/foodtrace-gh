@@ -38,6 +38,9 @@ public class MarketplaceService {
         LEFT JOIN marketplace_post_likes l ON l.post_id = mp.id
         LEFT JOIN marketplace_post_comments c ON c.post_id = mp.id
         WHERE mp.status <> 'hidden'
+          AND (mp.status <> 'pending'
+               OR mp.seller_id = CAST(:viewerId AS uuid)
+               OR CAST(:isRegulator AS boolean))
           AND (CAST(:domain AS text) IS NULL OR mp.domain = CAST(:domain AS marketplace_post_domain))
           AND (CAST(:search AS text) IS NULL
                OR lower(mp.title) LIKE CAST(:search AS text)
@@ -48,6 +51,7 @@ public class MarketplaceService {
         LIMIT :limit
         """)
         .param("viewerId", user.id())
+        .param("isRegulator", "regulator".equals(user.role()))
         .param("domain", domainFilter)
         .param("search", search)
         .param("limit", safeLimit)
@@ -69,12 +73,12 @@ public class MarketplaceService {
         INSERT INTO marketplace_posts
           (seller_id, seller_role, domain, title, caption, location, image_url, price_text,
            hashtags, qr_code_string, product_batch_id, drug_batch_id, farm_id,
-           safety_status, safety_label, safety_source)
+           safety_status, safety_label, safety_source, status)
         VALUES
           (CAST(:sellerId AS uuid), CAST(:sellerRole AS user_role), CAST(:domain AS marketplace_post_domain),
            :title, :caption, :location, :imageUrl, :priceText, CAST(:hashtags AS text[]),
            :qrCodeString, CAST(:productBatchId AS uuid), CAST(:drugBatchId AS uuid), CAST(:farmId AS uuid),
-           :safetyStatus, :safetyLabel, :safetySource)
+           :safetyStatus, :safetyLabel, :safetySource, CAST('pending' AS marketplace_post_status))
         RETURNING id, domain, title, caption, location, image_url, price_text, hashtags,
                   qr_code_string, safety_status, safety_label, safety_source, status, created_at
         """)
@@ -180,6 +184,23 @@ public class MarketplaceService {
     comment.put("authorName", user.fullName());
     comment.put("authorRole", user.role());
     return Map.of("comment", comment);
+  }
+
+  public Map<String, Object> approvePost(CurrentUser user, String postId) {
+    if (!"regulator".equals(user.role())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only regulators can approve marketplace posts");
+    }
+    Map<String, Object> post = jdbc.sql("""
+        UPDATE marketplace_posts
+        SET status = 'active', updated_at = now()
+        WHERE id = CAST(:postId AS uuid) AND status = 'pending'
+        RETURNING id, status, title
+        """)
+        .param("postId", postId)
+        .query(DatabaseRowMapper::toMap)
+        .optional()
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No pending post with that id"));
+    return Map.of("post", post);
   }
 
   public Map<String, Object> recallPost(CurrentUser user, String postId, Map<String, Object> body) {

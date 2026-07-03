@@ -69,6 +69,11 @@ public class MarketplaceController {
     return marketplaceService.deletePost(currentUser(authentication), postId);
   }
 
+  @PatchMapping("/posts/{postId}/approve")
+  public Map<String, Object> approvePost(@PathVariable String postId, Authentication authentication) {
+    return marketplaceService.approvePost(currentUser(authentication), postId);
+  }
+
   @PatchMapping("/posts/{postId}/flag")
   public Map<String, Object> flagPost(
       @PathVariable String postId,

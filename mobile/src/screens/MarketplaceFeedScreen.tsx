@@ -34,7 +34,7 @@ type MarketplacePost = {
   safetyStatus: string;
   safetyLabel: string;
   safetySource: string;
-  status: string;
+  status: string; // active | pending | flagged | recalled | hidden
   sellerName: string;
   sellerRole: string;
   likeCount: number;
@@ -160,6 +160,15 @@ export function MarketplaceFeedScreen({ apiBase, token, currentUserRole, onVerif
     }
   }
 
+  async function approve(post: MarketplacePost) {
+    patchPost(post.id, { status: "active" });
+    try {
+      await fetch(`${apiBase}/marketplace/posts/${post.id}/approve`, { method: "PATCH", headers: authHeaders });
+    } catch {
+      void loadFeed();
+    }
+  }
+
   async function submitComment(post: MarketplacePost) {
     const body = (commentDraft[post.id] || "").trim();
     if (!body) return;
@@ -179,7 +188,9 @@ export function MarketplaceFeedScreen({ apiBase, token, currentUserRole, onVerif
   }
 
   function renderPost({ item: post }: { item: MarketplacePost }) {
-    const badge = badgeColors(post.safetyStatus);
+    const pending = post.status === "pending";
+    const badge = pending ? { bg: "#241a08", fg: "#EF9F27" } : badgeColors(post.safetyStatus);
+    const badgeLabel = pending ? "Pending approval" : post.safetyLabel;
     const comments = openComments[post.id];
     return (
       <View style={s.card}>
@@ -197,7 +208,7 @@ export function MarketplaceFeedScreen({ apiBase, token, currentUserRole, onVerif
         <View style={s.imageArea}>
           <Text style={s.imageIcon}>{domainIcon(post.domain)}</Text>
           <View style={[s.badge, { backgroundColor: badge.bg, borderColor: badge.fg }]}>
-            <Text style={[s.badgeText, { color: badge.fg }]}>{post.safetyLabel}</Text>
+            <Text style={[s.badgeText, { color: badge.fg }]}>{badgeLabel}</Text>
           </View>
         </View>
 
@@ -231,6 +242,14 @@ export function MarketplaceFeedScreen({ apiBase, token, currentUserRole, onVerif
             <Text style={[s.actionText, post.savedByViewer && s.saveOn]}>{post.savedByViewer ? "★ Saved" : "☆ Save"}</Text>
           </Pressable>
         </View>
+
+        {pending && currentUserRole === "regulator" ? (
+          <Pressable style={s.approveBtn} onPress={() => void approve(post)}>
+            <Text style={s.approveBtnText}>✓ Approve this post</Text>
+          </Pressable>
+        ) : pending ? (
+          <Text style={s.pendingNote}>Awaiting regulator approval before it goes public.</Text>
+        ) : null}
 
         {comments ? (
           <View style={s.comments}>
@@ -348,6 +367,9 @@ const s = StyleSheet.create({
   actionText: { color: "#a9b8b1", fontSize: 13 },
   likeOn: { color: "#D4537E" },
   saveOn: { color: "#EF9F27" },
+  approveBtn: { margin: 12, marginTop: 0, backgroundColor: "#0f2c1f", borderWidth: 1, borderColor: "#77c7a2", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
+  approveBtnText: { color: "#77c7a2", fontWeight: "700", fontSize: 13 },
+  pendingNote: { color: "#EF9F27", fontSize: 11, paddingHorizontal: 14, paddingBottom: 12 },
 
   comments: { borderTopWidth: 0.5, borderTopColor: "rgba(119,199,162,0.1)", padding: 12, gap: 10 },
   noComments: { color: "#7d8a84", fontSize: 12 },

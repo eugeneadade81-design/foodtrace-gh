@@ -77,6 +77,7 @@ export function MarketplaceComposeScreen({ apiBase, token, role, onPosted, onCan
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   const loadProducts = useCallback(async () => {
     setLoadingProducts(true);
@@ -127,12 +128,25 @@ export function MarketplaceComposeScreen({ apiBase, token, role, onPosted, onCan
         const err = await res.json().catch(() => ({}));
         throw new Error((err && (err.error || err.detail)) || "Could not post. Please try again.");
       }
-      onPosted();
+      setSubmitted(true);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Could not post. Please try again.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (submitted) {
+    return (
+      <View style={[s.root, s.successWrap]}>
+        <View style={s.successIcon}><Text style={s.successCheck}>✓</Text></View>
+        <Text style={s.successTitle}>Submitted for approval</Text>
+        <Text style={s.successBody}>Your product has been sent to a regulator for review. Once approved, it appears in the public marketplace with its verified safety badge.</Text>
+        <Pressable style={s.postBtn} onPress={onPosted}>
+          <Text style={s.postBtnText}>Back to marketplace</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   return (
@@ -203,4 +217,9 @@ const s = StyleSheet.create({
   postBtn: { backgroundColor: "#77c7a2", borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 24 },
   postBtnOff: { opacity: 0.6 },
   postBtnText: { color: "#05080b", fontWeight: "700", fontSize: 15 },
+  successWrap: { alignItems: "center", justifyContent: "center", padding: 30, gap: 14 },
+  successIcon: { width: 84, height: 84, borderRadius: 42, backgroundColor: "#0f2c1f", borderWidth: 2, borderColor: "#77c7a2", alignItems: "center", justifyContent: "center" },
+  successCheck: { color: "#77c7a2", fontSize: 44, fontWeight: "800" },
+  successTitle: { color: "#e8f0ec", fontSize: 18, fontWeight: "700" },
+  successBody: { color: "#a9b8b1", fontSize: 13, textAlign: "center", lineHeight: 20 },
 });
