@@ -96,6 +96,12 @@ public class AuthService {
     }
     String phone = blankToNull(request.phone());
     String email = blankToNull(request.email());
+    if (email != null && !isValidEmail(email)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a valid email address (e.g. name@example.com)");
+    }
+    if (phone != null && !isValidGhanaPhone(phone)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a valid Ghana phone number (e.g. 024 123 4567)");
+    }
     if (phone != null && userExistsByPhone(phone)) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "User already exists");
     }
@@ -198,6 +204,20 @@ public class AuthService {
         String.valueOf(row.getOrDefault("language", "en")),
         Boolean.TRUE.equals(row.get("isVerified")),
         Boolean.TRUE.equals(row.get("isActive")));
+  }
+
+  // A pragmatic email format check (structure only, not deliverability).
+  private static final java.util.regex.Pattern EMAIL_PATTERN =
+      java.util.regex.Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+
+  private static boolean isValidEmail(String email) {
+    return EMAIL_PATTERN.matcher(email.trim()).matches();
+  }
+
+  // Ghana phone numbers: 10 digits starting 0 (024 123 4567) or intl 233XXXXXXXXX.
+  private static boolean isValidGhanaPhone(String phone) {
+    String digits = phone.replaceAll("\\D", "");
+    return digits.matches("0\\d{9}") || digits.matches("233\\d{9}");
   }
 
   private static void requirePresent(String value, String message) {

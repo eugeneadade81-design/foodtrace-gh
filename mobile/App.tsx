@@ -73,6 +73,17 @@ function resolveDefaultApiBase() {
   return Platform.OS === "android" ? "http://10.0.2.2:3000/api" : "http://localhost:3000/api";
 }
 
+/** Structural email check (matches the backend's format rule). */
+function isValidEmail(email: string): boolean {
+  return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email.trim());
+}
+
+/** Ghana phone: 10 digits starting 0, or intl 233XXXXXXXXX. */
+function isValidGhanaPhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, "");
+  return /^0\d{9}$/.test(digits) || /^233\d{9}$/.test(digits);
+}
+
 /** Error that carries the HTTP status so callers can tailor the message. */
 function httpError(message: string, status: number): Error {
   const err = new Error(message);
@@ -102,7 +113,10 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const defaultApiBase = resolveDefaultApiBase();
-const consumerHistoryKey = "foodtrace.consumer.history.v1";
+// Scan history is stored per-user so one account never sees another's scans
+// on a shared device.
+const historyKeyFor = (userId?: string | null) =>
+  `foodtrace.consumer.history.${userId ?? "anon"}`;
 const apiBaseKey = "foodtrace.apiBase.v1";
 
 const roleLabels: Record<string, string> = {
@@ -261,14 +275,17 @@ export default function App() {
     })();
   }, []);
 
+  // Load this user's own scan history whenever the signed-in user changes.
   useEffect(() => {
+    const userId = session?.user.id;
+    if (!userId) { setConsumerHistory([]); return; }
     void (async () => {
       try {
-        const stored = await AsyncStorage.getItem(consumerHistoryKey);
-        if (stored) setConsumerHistory(JSON.parse(stored) as HistoryEntry[]);
-      } catch { /* best effort */ }
+        const stored = await AsyncStorage.getItem(historyKeyFor(userId));
+        setConsumerHistory(stored ? (JSON.parse(stored) as HistoryEntry[]) : []);
+      } catch { setConsumerHistory([]); }
     })();
-  }, []);
+  }, [session?.user.id]);
 
   useEffect(() => {
     const detected = resolveDefaultApiBase();
@@ -323,7 +340,7 @@ export default function App() {
 
   async function persistHistory(next: HistoryEntry[]) {
     setConsumerHistory(next);
-    try { await AsyncStorage.setItem(consumerHistoryKey, JSON.stringify(next.slice(0, 25))); } catch { /* best effort */ }
+    try { await AsyncStorage.setItem(historyKeyFor(session?.user.id), JSON.stringify(next.slice(0, 25))); } catch { /* best effort */ }
   }
 
   function pushHistory(entry: Omit<HistoryEntry, "id" | "createdAt">) {
@@ -366,7 +383,10 @@ export default function App() {
     if (mode === "register") {
       if (!fullName.trim()) { setAuthStatus("Please enter your full name."); return; }
       if (!phone.trim() && !email.trim()) { setAuthStatus("Please enter a phone number or email address."); return; }
+      if (phone.trim() && !isValidGhanaPhone(phone)) { setAuthStatus("Enter a valid Ghana phone number, e.g. 024 123 4567."); return; }
+      if (email.trim() && !isValidEmail(email)) { setAuthStatus("Enter a valid email address, e.g. name@example.com."); return; }
       if (!password.trim()) { setAuthStatus("Please enter a password."); return; }
+      if (password.trim().length < 6) { setAuthStatus("Password must be at least 6 characters."); return; }
     } else {
       if (!identifier.trim()) { setAuthStatus("Please enter your phone or email."); return; }
       if (!password.trim()) { setAuthStatus("Please enter your password."); return; }
@@ -403,6 +423,11 @@ export default function App() {
     setRegulatorDashboard(null);
     setPharmacyDashboard(null);
     setAiMessages([]);
+    // Clear per-user data so the next person signing in on this device sees nothing.
+    setConsumerHistory([]);
+    setLastScanResult(null);
+    setScanResult(null);
+    setDrugScanResult(null);
   }
 
   // ── scan ──────────────────────────────────────────────────────────────────
