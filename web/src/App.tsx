@@ -11,6 +11,7 @@ import { ManufacturerSection } from "./components/ManufacturerSection";
 import { RegulatorSection } from "./components/RegulatorSection";
 import { DrugSection } from "./components/DrugSection";
 import { MarketplaceSection } from "./components/MarketplaceSection";
+import { AiAssistantSection } from "./components/AiAssistantSection";
 
 function App() {
   const [session, setSession] = useState<AuthResponse | null>(null);
@@ -138,6 +139,8 @@ function App() {
           onScanDrug={() => void scanDrug()}
         />
       ) : null}
+
+      <AiAssistantSection />
     </main>
   );
 }
