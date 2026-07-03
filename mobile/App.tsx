@@ -691,8 +691,12 @@ export default function App() {
 
   async function reviewRegulatorReport() {
     if (!session?.token) return;
+    if (!reportId.trim()) { setRegulatorStatus("There is no report to review yet."); return; }
+    if (!["reviewing", "resolved", "dismissed"].includes(reportStatus)) { setRegulatorStatus("Status must be reviewing, resolved, or dismissed."); return; }
+    setRegulatorStatus("Updating report…");
     try {
-      await readJsonResponse(await fetch(`${apiBase}/regulator/reports`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ reportId, status: reportStatus }) }));
+      await readJsonResponse(await fetch(`${apiBase}/regulator/reports`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ reportId: reportId.trim(), status: reportStatus }) }));
+      setRegulatorStatus("Report updated.");
       await loadRegulatorDashboard();
     } catch (error) { setRegulatorStatus(getFriendlyError(error)); }
   }

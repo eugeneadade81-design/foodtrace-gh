@@ -99,18 +99,38 @@ public class RegulatorService {
     return Map.of("dashboard", dashboard);
   }
 
+  private static final List<String> REPORT_STATUSES = List.of("pending", "reviewing", "resolved", "dismissed");
+
   public Map<String, Object> reviewReport(Map<String, Object> body) {
-    String reportId = String.valueOf(body.get("reportId"));
-    String status = String.valueOf(body.get("status"));
+    String reportId = blankToNull(body.get("reportId"));
+    String status = blankToNull(body.get("status"));
+    if (reportId == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select a report to review first.");
+    }
+    if (status == null || !REPORT_STATUSES.contains(status.toLowerCase())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be reviewing, resolved, or dismissed.");
+    }
+    UUID id;
+    try {
+      id = UUID.fromString(reportId);
+    } catch (IllegalArgumentException ex) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That report id is not valid.");
+    }
     int updated = jdbc.sql("""
         UPDATE consumer_reports SET status = CAST(:status AS report_status)
         WHERE id = :reportId
         """)
-        .param("reportId", UUID.fromString(reportId))
-        .param("status", status)
+        .param("reportId", id)
+        .param("status", status.toLowerCase())
         .update();
     if (updated == 0) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found");
     return Map.of("updated", true);
+  }
+
+  private static String blankToNull(Object value) {
+    if (value == null) return null;
+    String s = String.valueOf(value).trim();
+    return s.isEmpty() || "null".equalsIgnoreCase(s) ? null : s;
   }
 
   public Map<String, Object> createRecall(CurrentUser user, Map<String, Object> body) {
