@@ -28,7 +28,11 @@ public class MarketplaceService {
 
     List<Map<String, Object>> posts = jdbc.sql("""
         SELECT mp.id, mp.domain, mp.title, mp.caption, mp.location, mp.image_url, mp.price_text,
-               mp.hashtags, mp.qr_code_string, mp.safety_status, mp.safety_label, mp.safety_source,
+               mp.hashtags, mp.qr_code_string, mp.safety_source,
+               CASE WHEN mp.status = 'recalled' OR pb.recall_status = 'recalled' OR db.recall_status = 'recalled'
+                    THEN 'recalled' ELSE mp.safety_status END AS safety_status,
+               CASE WHEN mp.status = 'recalled' OR pb.recall_status = 'recalled' OR db.recall_status = 'recalled'
+                    THEN 'Recalled' ELSE mp.safety_label END AS safety_label,
                mp.status, mp.regulator_note, mp.created_at,
                u.full_name AS seller_name, u.role AS seller_role,
                COUNT(DISTINCT l.user_id) AS like_count,
@@ -37,6 +41,8 @@ public class MarketplaceService {
                EXISTS (SELECT 1 FROM marketplace_post_saves ms WHERE ms.post_id = mp.id AND ms.user_id = CAST(:viewerId AS uuid)) AS saved_by_viewer
         FROM marketplace_posts mp
         JOIN users u ON u.id = mp.seller_id
+        LEFT JOIN product_batches pb ON pb.id = mp.product_batch_id
+        LEFT JOIN drug_batches db ON db.id = mp.drug_batch_id
         LEFT JOIN marketplace_post_likes l ON l.post_id = mp.id
         LEFT JOIN marketplace_post_comments c ON c.post_id = mp.id
         WHERE mp.status <> 'hidden'
@@ -48,7 +54,7 @@ public class MarketplaceService {
                OR lower(mp.title) LIKE CAST(:search AS text)
                OR lower(mp.caption) LIKE CAST(:search AS text)
                OR lower(u.full_name) LIKE CAST(:search AS text))
-        GROUP BY mp.id, u.full_name, u.role
+        GROUP BY mp.id, u.full_name, u.role, pb.recall_status, db.recall_status
         ORDER BY mp.created_at DESC
         LIMIT :limit
         """)
