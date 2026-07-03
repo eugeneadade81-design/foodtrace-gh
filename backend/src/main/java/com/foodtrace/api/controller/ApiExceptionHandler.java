@@ -41,6 +41,15 @@ public class ApiExceptionHandler {
         "error", "That value isn't allowed. Please check your input and try again."));
   }
 
+  // An ownership-checked query (…RETURNING .single()) that matches no row means
+  // the item doesn't exist or isn't the caller's — a clean 404, not a 500.
+  @ExceptionHandler(org.springframework.dao.EmptyResultDataAccessException.class)
+  ResponseEntity<Map<String, Object>> emptyResult(org.springframework.dao.EmptyResultDataAccessException ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+        "status", 404,
+        "error", "Not found, or you don't have access to it."));
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<Map<String, Object>> unexpected(Exception ex) {
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
