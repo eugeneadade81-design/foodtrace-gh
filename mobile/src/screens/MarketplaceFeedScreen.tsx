@@ -125,8 +125,9 @@ export function MarketplaceFeedScreen({ apiBase, token, currentUserRole, onVerif
     });
     try {
       const res = await fetch(`${apiBase}/marketplace/posts/${post.id}/like`, { method: "POST", headers: authHeaders });
+      if (!res.ok) { void loadFeed(); return; }
       const data = await res.json();
-      patchPost(post.id, { likedByViewer: data.liked, likeCount: data.likeCount });
+      if (typeof data.likeCount === "number") patchPost(post.id, { likedByViewer: data.liked, likeCount: data.likeCount });
     } catch {
       void loadFeed();
     }
@@ -136,8 +137,9 @@ export function MarketplaceFeedScreen({ apiBase, token, currentUserRole, onVerif
     patchPost(post.id, { savedByViewer: !post.savedByViewer });
     try {
       const res = await fetch(`${apiBase}/marketplace/posts/${post.id}/save`, { method: "POST", headers: authHeaders });
+      if (!res.ok) { void loadFeed(); return; }
       const data = await res.json();
-      patchPost(post.id, { savedByViewer: data.saved });
+      if (typeof data.saved === "boolean") patchPost(post.id, { savedByViewer: data.saved });
     } catch {
       void loadFeed();
     }
@@ -177,7 +179,8 @@ export function MarketplaceFeedScreen({ apiBase, token, currentUserRole, onVerif
   async function approve(post: MarketplacePost) {
     patchPost(post.id, { status: "active" });
     try {
-      await fetch(`${apiBase}/marketplace/posts/${post.id}/approve`, { method: "PATCH", headers: authHeaders });
+      const res = await fetch(`${apiBase}/marketplace/posts/${post.id}/approve`, { method: "PATCH", headers: authHeaders });
+      if (!res.ok) void loadFeed();
     } catch {
       void loadFeed();
     }
@@ -193,11 +196,13 @@ export function MarketplaceFeedScreen({ apiBase, token, currentUserRole, onVerif
         headers: authHeaders,
         body: JSON.stringify({ body }),
       });
-      const data = await res.json();
+      const data = res.ok ? await res.json() : null;
+      if (!data?.comment) throw new Error("comment failed");
       setOpenComments((prev) => ({ ...prev, [post.id]: [...(prev[post.id] ?? []), data.comment] }));
       patchPost(post.id, { commentCount: post.commentCount + 1 });
     } catch {
-      /* ignore */
+      // Restore the draft so the user doesn't lose what they typed.
+      setCommentDraft((prev) => ({ ...prev, [post.id]: body }));
     }
   }
 
@@ -313,9 +318,9 @@ export function MarketplaceFeedScreen({ apiBase, token, currentUserRole, onVerif
         </Pressable>
       ) : null}
 
-      {loading ? (
+      {loading && posts.length === 0 ? (
         <View style={s.center}><ActivityIndicator color="#77c7a2" /><Text style={s.centerText}>Loading feed…</Text></View>
-      ) : error ? (
+      ) : error && posts.length === 0 ? (
         <View style={s.center}>
           <Text style={s.errorText}>{error}</Text>
           <Pressable style={s.retryBtn} onPress={() => void loadFeed()}><Text style={s.retryText}>Try again</Text></Pressable>
