@@ -11,6 +11,23 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Email is optional: without SMTP configured (local/dev) we log instead of
+// sending, and a send failure never breaks the caller (e.g. registration). This
+// fixes the 500 that made register fail whenever no SMTP server was available.
+const smtpConfigured = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER);
+
+async function deliver(mail, fallbackLog) {
+  if (!smtpConfigured) {
+    console.log(`[email disabled — no SMTP] ${fallbackLog}`);
+    return;
+  }
+  try {
+    await transporter.sendMail(mail);
+  } catch (err) {
+    console.warn(`[email send failed, continuing] ${err.message} :: ${fallbackLog}`);
+  }
+}
+
 /**
  * Generate a 6-digit OTP
  */
@@ -41,12 +58,15 @@ export const sendOTPEmail = async (toEmail, otp, purpose = 'verify') => {
     </div>
   `;
 
-  await transporter.sendMail({
-    from: `"FoodTrace GH" <${process.env.EMAIL_FROM}>`,
-    to: toEmail,
-    subject,
-    html,
-  });
+  await deliver(
+    {
+      from: `"FoodTrace GH" <${process.env.EMAIL_FROM}>`,
+      to: toEmail,
+      subject,
+      html,
+    },
+    `OTP for ${toEmail} (${purpose}): ${otp}`
+  );
 };
 
 /**
@@ -67,10 +87,13 @@ export const sendRecallEmail = async (toEmail, batchInfo, recallReason, safeDisp
     </div>
   `;
 
-  await transporter.sendMail({
-    from: `"FoodTrace GH" <${process.env.EMAIL_FROM}>`,
-    to: toEmail,
-    subject: `🚨 RECALL: ${batchInfo.product_name} (Batch ${batchInfo.batch_number})`,
-    html,
-  });
+  await deliver(
+    {
+      from: `"FoodTrace GH" <${process.env.EMAIL_FROM}>`,
+      to: toEmail,
+      subject: `🚨 RECALL: ${batchInfo.product_name} (Batch ${batchInfo.batch_number})`,
+      html,
+    },
+    `Recall alert for ${toEmail}: ${batchInfo.product_name} batch ${batchInfo.batch_number}`
+  );
 };
