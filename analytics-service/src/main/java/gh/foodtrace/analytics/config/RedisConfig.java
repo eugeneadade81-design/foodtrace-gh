@@ -1,5 +1,6 @@
 package gh.foodtrace.analytics.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -15,17 +16,18 @@ import java.util.Map;
 
 /**
  * Redis-backed cache for the analytics aggregates so the dashboard loads fast
- * and doesn't recompute on every page view. Values are stored as JSON (readable
- * with {@code redis-cli} and decoupled from Java serialization) and each cache
- * gets a TTL tuned to how often its underlying data really changes.
+ * and doesn't recompute on every page view. Each cache gets a TTL tuned to how
+ * often its underlying data really changes.
  *
- * <p>Guarded with {@code @Profile("!test")}: the build has no Redis server, so
- * the test profile falls back to an in-memory {@code simple} cache (see
- * {@code src/test/resources/application-test.yml}). Cache names here must match
- * the {@code @Cacheable} names in {@code AnalyticsService}.
+ * <p><b>Opt-in.</b> This is only active when {@code spring.cache.type=redis}
+ * (set {@code CACHE_TYPE=redis} in the AWS/prod environment). Locally and in
+ * tests the app defaults to Spring's in-memory {@code simple} cache so it runs
+ * with no Redis server — {@code @Cacheable} still works end-to-end. Cache names
+ * here must match the {@code @Cacheable} names in {@code AnalyticsService}.
  */
 @Configuration
 @Profile("!test")
+@ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis")
 public class RedisConfig {
 
     @Bean

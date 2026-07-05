@@ -8,23 +8,28 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * Allows the React regulator dashboard (Vite dev server, and later the deployed
  * Amplify origin) to call this API from the browser. Origins are configurable
- * via {@code CORS_ALLOWED_ORIGINS} so Day 12 can add the live Amplify URL
- * without a code change; defaults cover local Vite/CRA dev ports.
+ * via {@code CORS_ALLOWED_ORIGINS} so the live Amplify URL can be added without
+ * a code change.
+ *
+ * <p>Uses {@code allowedOriginPatterns} with a {@code localhost:*} default so a
+ * local run still works when Vite falls back to a different port (e.g. 5174 when
+ * 5173 is busy) — the previous fixed {@code localhost:5173} default caused a
+ * silent CORS failure ("Network Error") whenever the port drifted.
  */
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 
-    private final String[] allowedOrigins;
+    private final String[] allowedOriginPatterns;
 
-    public CorsConfig(@Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
-                      String[] allowedOrigins) {
-        this.allowedOrigins = allowedOrigins;
+    public CorsConfig(@Value("${cors.allowed-origins:http://localhost:*,http://127.0.0.1:*}")
+                      String[] allowedOriginPatterns) {
+        this.allowedOriginPatterns = allowedOriginPatterns;
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(allowedOrigins)
+                .allowedOriginPatterns(allowedOriginPatterns)
                 .allowedMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);

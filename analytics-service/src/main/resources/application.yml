@@ -5,6 +5,11 @@ spring:
   application:
     name: analytics-service
 
+  # Local/dev default: in-memory cache (no Redis server needed). Set
+  # CACHE_TYPE=redis on AWS/prod to activate RedisConfig and the shared cache.
+  cache:
+    type: ${CACHE_TYPE:simple}
+
   # Local dev defaults to an in-memory H2 database so the service runs without
   # a Postgres install. On AWS (Day 11) these are overridden by env vars to
   # point at the shared RDS PostgreSQL instance.
