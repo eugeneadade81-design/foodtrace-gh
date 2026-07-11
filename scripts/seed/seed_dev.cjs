@@ -463,9 +463,9 @@ async function run() {
     }
 
     const foodBatches = [
-      { manufacturerId: manufacturers[0].manufacturerId, batchNumber: "FB-1001", code: "FT-QR-1001", recallStatus: "active", product: "Accra Foods Tomato Paste 400g", farmOrigin: "Kumasi, Ashanti", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Canned_tomatoes.jpg" },
-      { manufacturerId: manufacturers[1].manufacturerId, batchNumber: "FB-2002", code: "FT-QR-2002", recallStatus: "active", product: "GoldCoast Sobolo Drink 500ml", farmOrigin: "Sunyani, Brong-Ahafo", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Bissap.jpg" },
-      { manufacturerId: manufacturers[1].manufacturerId, batchNumber: "FB-4004", code: "FT-QR-4004", recallStatus: "recalled", product: "GoldCoast Sobolo Drink 500ml - RECALLED", farmOrigin: "Sunyani, Brong-Ahafo", recallReason: "Possible contamination detected during quality review.", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Bissap.jpg" },
+      { manufacturerId: manufacturers[0].manufacturerId, batchNumber: "FB-1001", code: "FT-QR-1001", recallStatus: "active", product: "Accra Foods Tomato Paste 400g", farmOrigin: "Kumasi, Ashanti", imageUrl: "https://upload.wikimedia.org/wikipedia/commons/b/b7/Canned_tomatoes.jpg" },
+      { manufacturerId: manufacturers[1].manufacturerId, batchNumber: "FB-2002", code: "FT-QR-2002", recallStatus: "active", product: "GoldCoast Sobolo Drink 500ml", farmOrigin: "Sunyani, Brong-Ahafo", imageUrl: "https://upload.wikimedia.org/wikipedia/commons/3/3e/Bissap.jpg" },
+      { manufacturerId: manufacturers[1].manufacturerId, batchNumber: "FB-4004", code: "FT-QR-4004", recallStatus: "recalled", product: "GoldCoast Sobolo Drink 500ml - RECALLED", farmOrigin: "Sunyani, Brong-Ahafo", recallReason: "Possible contamination detected during quality review.", imageUrl: "https://upload.wikimedia.org/wikipedia/commons/3/3e/Bissap.jpg" },
     ];
     let firstQrId = null;
     for (const batch of foodBatches) {
@@ -488,9 +488,9 @@ async function run() {
     }
 
     const drugBatches = [
-      { drugId: drugIds[0], pharmacyId: pharmacies[0].pharmacyId, batchNumber: "DB-1001", code: "DR-QR-1001", recallStatus: "active", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Paracetamol.jpg" },
-      { drugId: drugIds[2], pharmacyId: pharmacies[0].pharmacyId, batchNumber: "DB-2002", code: "DR-QR-2002", recallStatus: "active", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Pills.jpg" },
-      { drugId: drugIds[3], pharmacyId: pharmacies[1].pharmacyId, batchNumber: "DB-4004", code: "DR-QR-4004", recallStatus: "recalled", recallReason: "Banned drug test batch.", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Pills.jpg" },
+      { drugId: drugIds[0], pharmacyId: pharmacies[0].pharmacyId, batchNumber: "DB-1001", code: "DR-QR-1001", recallStatus: "active", imageUrl: "https://upload.wikimedia.org/wikipedia/commons/4/49/Paracetamol.jpg" },
+      { drugId: drugIds[2], pharmacyId: pharmacies[0].pharmacyId, batchNumber: "DB-2002", code: "DR-QR-2002", recallStatus: "active", imageUrl: "https://upload.wikimedia.org/wikipedia/commons/7/7f/Pills.jpg" },
+      { drugId: drugIds[3], pharmacyId: pharmacies[1].pharmacyId, batchNumber: "DB-4004", code: "DR-QR-4004", recallStatus: "recalled", recallReason: "Banned drug test batch.", imageUrl: "https://upload.wikimedia.org/wikipedia/commons/7/7f/Pills.jpg" },
     ];
     for (const batch of drugBatches) {
       const drugBatchId = await getOrCreateDrugBatch(batch.drugId, batch.pharmacyId, {
