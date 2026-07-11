@@ -17,5 +17,9 @@
     "build:backend": "mvn -q -DskipTests package -f backend/pom.xml",
     "build:web": "npm run build --workspace web",
     "typecheck": "npm run typecheck --workspaces"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "pg": "^8.22.0"
   }
 }
