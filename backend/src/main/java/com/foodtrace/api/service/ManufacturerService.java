@@ -114,11 +114,11 @@ public class ManufacturerService {
     Map<String, Object> batch = jdbc.sql("""
         INSERT INTO product_batches
           (manufacturer_id, batch_number, product_name, farm_origin,
-           ingredient_sources, processing_steps, quality_checks, packaging_date, expiry_date)
+           ingredient_sources, processing_steps, quality_checks, packaging_date, expiry_date, image_url)
         VALUES (:mid, :batchNumber, :productName, :farmOrigin,
                 CAST(:ingredientSources AS jsonb), CAST(:processingSteps AS jsonb),
-                CAST(:qualityChecks AS jsonb), CAST(:packagingDate AS date), CAST(:expiryDate AS date))
-        RETURNING id, batch_number, product_name, farm_origin, packaging_date, expiry_date, recall_status
+                CAST(:qualityChecks AS jsonb), CAST(:packagingDate AS date), CAST(:expiryDate AS date), :imageUrl)
+        RETURNING id, batch_number, product_name, farm_origin, packaging_date, expiry_date, recall_status, image_url
         """)
         .param("mid", manufacturerId)
         .param("batchNumber", batchNumber)
@@ -129,6 +129,7 @@ public class ManufacturerService {
         .param("qualityChecks", toJson(body.get("qualityChecks")))
         .param("packagingDate", body.get("packagingDate"))
         .param("expiryDate", body.get("expiryDate"))
+        .param("imageUrl", body.get("imageUrl"))
         .query(DatabaseRowMapper::toMap).single();
 
     UUID batchId = UUID.fromString(String.valueOf(batch.get("id")));

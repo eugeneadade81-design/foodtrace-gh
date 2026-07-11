@@ -203,7 +203,8 @@ async function getOrCreateProductBatch(manufacturerId, batch) {
           quality_checks = $6,
           recall_status = $7::recall_status,
           recall_reason = $8,
-          recalled_at = CASE WHEN $7::recall_status = 'recalled'::recall_status THEN COALESCE(recalled_at, now()) ELSE NULL END
+          recalled_at = CASE WHEN $7::recall_status = 'recalled'::recall_status THEN COALESCE(recalled_at, now()) ELSE NULL END,
+          image_url = COALESCE($9, image_url)
       WHERE id = $1
       `,
       [
@@ -215,6 +216,7 @@ async function getOrCreateProductBatch(manufacturerId, batch) {
         JSON.stringify(batch.qualityChecks),
         batch.recallStatus,
         batch.recallReason ?? null,
+        batch.imageUrl ?? null,
       ]
     );
     return existing.rows[0].id;
@@ -224,9 +226,9 @@ async function getOrCreateProductBatch(manufacturerId, batch) {
     `
     INSERT INTO product_batches (
       manufacturer_id, batch_number, product_name, farm_origin, ingredient_sources, processing_steps, quality_checks,
-      packaging_date, expiry_date, recall_status, recall_reason, recalled_at
+      packaging_date, expiry_date, recall_status, recall_reason, recalled_at, image_url
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE - INTERVAL '5 days', CURRENT_DATE + INTERVAL '365 days', $8::recall_status, $9, CASE WHEN $8::text = 'recalled' THEN now() ELSE NULL END)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE - INTERVAL '5 days', CURRENT_DATE + INTERVAL '365 days', $8::recall_status, $9, CASE WHEN $8::text = 'recalled' THEN now() ELSE NULL END, $10)
     RETURNING id
     `,
     [
@@ -239,6 +241,7 @@ async function getOrCreateProductBatch(manufacturerId, batch) {
       JSON.stringify(batch.qualityChecks),
       batch.recallStatus,
       batch.recallReason ?? null,
+      batch.imageUrl ?? null,
     ]
   );
   return inserted.rows[0].id;
@@ -264,7 +267,10 @@ async function getOrCreateDrugBatch(drugId, pharmacyId, batch) {
     [pharmacyId, batch.batchNumber]
   );
   if (existing.rowCount) {
-    await client.query(`UPDATE drug_batches SET recall_status = $2 WHERE id = $1`, [existing.rows[0].id, batch.recallStatus]);
+    await client.query(
+      `UPDATE drug_batches SET recall_status = $2, image_url = COALESCE($3, image_url) WHERE id = $1`,
+      [existing.rows[0].id, batch.recallStatus, batch.imageUrl ?? null]
+    );
     return existing.rows[0].id;
   }
 
@@ -272,12 +278,12 @@ async function getOrCreateDrugBatch(drugId, pharmacyId, batch) {
     `
     INSERT INTO drug_batches (
       drug_id, pharmacy_id, batch_number, manufacture_date, expiry_date,
-      quantity_received, quantity_remaining, supplier_name, recall_status
+      quantity_received, quantity_remaining, supplier_name, recall_status, image_url
     )
-    VALUES ($1, $2, $3, CURRENT_DATE - INTERVAL '10 days', CURRENT_DATE + INTERVAL '180 days', $4, $5, $6, $7)
+    VALUES ($1, $2, $3, CURRENT_DATE - INTERVAL '10 days', CURRENT_DATE + INTERVAL '180 days', $4, $5, $6, $7, $8)
     RETURNING id
     `,
-    [drugId, pharmacyId, batch.batchNumber, batch.quantityReceived, batch.quantityRemaining, batch.supplierName, batch.recallStatus]
+    [drugId, pharmacyId, batch.batchNumber, batch.quantityReceived, batch.quantityRemaining, batch.supplierName, batch.recallStatus, batch.imageUrl ?? null]
   );
   return inserted.rows[0].id;
 }
@@ -457,9 +463,9 @@ async function run() {
     }
 
     const foodBatches = [
-      { manufacturerId: manufacturers[0].manufacturerId, batchNumber: "FB-1001", code: "FT-QR-1001", recallStatus: "active", product: "Accra Foods Tomato Paste 400g", farmOrigin: "Kumasi, Ashanti" },
-      { manufacturerId: manufacturers[1].manufacturerId, batchNumber: "FB-2002", code: "FT-QR-2002", recallStatus: "active", product: "GoldCoast Sobolo Drink 500ml", farmOrigin: "Sunyani, Brong-Ahafo" },
-      { manufacturerId: manufacturers[1].manufacturerId, batchNumber: "FB-4004", code: "FT-QR-4004", recallStatus: "recalled", product: "GoldCoast Sobolo Drink 500ml - RECALLED", farmOrigin: "Sunyani, Brong-Ahafo", recallReason: "Possible contamination detected during quality review." },
+      { manufacturerId: manufacturers[0].manufacturerId, batchNumber: "FB-1001", code: "FT-QR-1001", recallStatus: "active", product: "Accra Foods Tomato Paste 400g", farmOrigin: "Kumasi, Ashanti", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Canned_tomatoes.jpg" },
+      { manufacturerId: manufacturers[1].manufacturerId, batchNumber: "FB-2002", code: "FT-QR-2002", recallStatus: "active", product: "GoldCoast Sobolo Drink 500ml", farmOrigin: "Sunyani, Brong-Ahafo", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Bissap.jpg" },
+      { manufacturerId: manufacturers[1].manufacturerId, batchNumber: "FB-4004", code: "FT-QR-4004", recallStatus: "recalled", product: "GoldCoast Sobolo Drink 500ml - RECALLED", farmOrigin: "Sunyani, Brong-Ahafo", recallReason: "Possible contamination detected during quality review.", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Bissap.jpg" },
     ];
     let firstQrId = null;
     for (const batch of foodBatches) {
@@ -472,6 +478,7 @@ async function run() {
         qualityChecks: [{ check: "visual", result: "pass" }],
         recallStatus: batch.recallStatus,
         recallReason: batch.recallReason,
+        imageUrl: batch.imageUrl,
       });
       const qrId = await getOrCreateQrCode(batchId, batch.code, batch.recallStatus === "recalled" ? "recalled" : "active");
       if (!firstQrId) firstQrId = qrId;
@@ -481,9 +488,9 @@ async function run() {
     }
 
     const drugBatches = [
-      { drugId: drugIds[0], pharmacyId: pharmacies[0].pharmacyId, batchNumber: "DB-1001", code: "DR-QR-1001", recallStatus: "active" },
-      { drugId: drugIds[2], pharmacyId: pharmacies[0].pharmacyId, batchNumber: "DB-2002", code: "DR-QR-2002", recallStatus: "active" },
-      { drugId: drugIds[3], pharmacyId: pharmacies[1].pharmacyId, batchNumber: "DB-4004", code: "DR-QR-4004", recallStatus: "recalled", recallReason: "Banned drug test batch." },
+      { drugId: drugIds[0], pharmacyId: pharmacies[0].pharmacyId, batchNumber: "DB-1001", code: "DR-QR-1001", recallStatus: "active", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Paracetamol.jpg" },
+      { drugId: drugIds[2], pharmacyId: pharmacies[0].pharmacyId, batchNumber: "DB-2002", code: "DR-QR-2002", recallStatus: "active", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Pills.jpg" },
+      { drugId: drugIds[3], pharmacyId: pharmacies[1].pharmacyId, batchNumber: "DB-4004", code: "DR-QR-4004", recallStatus: "recalled", recallReason: "Banned drug test batch.", imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Pills.jpg" },
     ];
     for (const batch of drugBatches) {
       const drugBatchId = await getOrCreateDrugBatch(batch.drugId, batch.pharmacyId, {
@@ -492,6 +499,7 @@ async function run() {
         quantityRemaining: 80,
         supplierName: "Seeded Supplier",
         recallStatus: batch.recallStatus,
+        imageUrl: batch.imageUrl,
       });
       await getOrCreateDrugQrCode(drugBatchId, batch.code, batch.recallStatus === "recalled" ? "recalled" : "active");
       if (batch.recallStatus === "recalled") {

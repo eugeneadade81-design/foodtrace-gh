@@ -149,12 +149,12 @@ public class DrugService {
     Map<String, Object> batch = jdbc.sql("""
         INSERT INTO drug_batches
           (drug_id, pharmacy_id, batch_number, manufacture_date, expiry_date,
-           quantity_received, quantity_remaining, supplier_name)
+           quantity_received, quantity_remaining, supplier_name, image_url)
         VALUES
           (:drugId, :pharmacyId, :batchNumber, CAST(:manufactureDate AS date),
-           CAST(:expiryDate AS date), :quantityReceived, :quantityRemaining, :supplierName)
+           CAST(:expiryDate AS date), :quantityReceived, :quantityRemaining, :supplierName, :imageUrl)
         RETURNING id, batch_number, manufacture_date, expiry_date,
-                  quantity_received, quantity_remaining, recall_status
+                  quantity_received, quantity_remaining, recall_status, image_url
         """)
         .param("drugId", drugId)
         .param("pharmacyId", pharmacyId)
@@ -164,6 +164,7 @@ public class DrugService {
         .param("quantityReceived", ((Number) body.getOrDefault("quantityReceived", 0)).intValue())
         .param("quantityRemaining", ((Number) body.getOrDefault("quantityRemaining", 0)).intValue())
         .param("supplierName", body.get("supplierName"))
+        .param("imageUrl", body.get("imageUrl"))
         .query(DatabaseRowMapper::toMap).single();
 
     UUID batchId = UUID.fromString(String.valueOf(batch.get("id")));

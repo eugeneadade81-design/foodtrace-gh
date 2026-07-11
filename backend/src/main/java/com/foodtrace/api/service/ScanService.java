@@ -38,7 +38,12 @@ public class ScanService {
           EXISTS (
             SELECT 1 FROM recall_events re
             WHERE re.batch_id = pb.id AND re.resolved_at IS NULL
-          ) AS has_active_recall
+          ) AS has_active_recall,
+          COALESCE(pb.image_url, (
+            SELECT mp.image_url FROM marketplace_posts mp
+            WHERE mp.product_batch_id = pb.id AND mp.image_url IS NOT NULL
+            ORDER BY mp.created_at DESC LIMIT 1
+          )) AS image_url
         FROM qr_codes q
         JOIN product_batches pb ON pb.id = q.batch_id
         JOIN manufacturers   m  ON m.id  = pb.manufacturer_id
@@ -78,7 +83,12 @@ public class ScanService {
           EXISTS (
             SELECT 1 FROM drug_recall_events dre
             WHERE dre.drug_batch_id = db.id
-          ) AS has_active_recall
+          ) AS has_active_recall,
+          COALESCE(db.image_url, (
+            SELECT mp.image_url FROM marketplace_posts mp
+            WHERE mp.drug_batch_id = db.id AND mp.image_url IS NOT NULL
+            ORDER BY mp.created_at DESC LIMIT 1
+          )) AS image_url
         FROM drug_qr_codes q
         JOIN drug_batches db ON db.id  = q.drug_batch_id
         JOIN drugs         d  ON d.id  = db.drug_id
@@ -226,6 +236,7 @@ public class ScanService {
     result.put("qrStatus",         row.get("qrStatus"));
     result.put("scanCount",        row.get("scanCount"));
     result.put("reason",           row.get("recallReason"));
+    result.put("imageUrl",         row.get("imageUrl"));
     return result;
   }
 
@@ -295,6 +306,7 @@ public class ScanService {
     result.put("recallStatus",      row.get("recallStatus"));
     result.put("qrStatus",          row.get("qrStatus"));
     result.put("scanCount",         row.get("scanCount"));
+    result.put("imageUrl",          row.get("imageUrl"));
     return result;
   }
 

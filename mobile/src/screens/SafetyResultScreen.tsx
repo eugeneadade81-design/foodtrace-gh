@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useRef } from "react";
 import {
   Animated,
   Easing,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -270,6 +271,11 @@ export function SafetyResultScreen({
       <Text style={styles.title}>{result.title}</Text>
       <Text style={styles.summary}>{result.summary}</Text>
 
+      {/* ── Product photo ── */}
+      {result.imageUrl ? (
+        <Image source={{ uri: result.imageUrl }} style={styles.productImage} resizeMode="cover" />
+      ) : null}
+
       {/* ── Detail rows ── */}
       <View style={styles.detailCard}>
         {isDrugResult(result) && result.drugName ? (
@@ -382,6 +388,13 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: "center",
     marginBottom: 16,
+  },
+  productImage: {
+    width: "100%",
+    height: 220,
+    borderRadius: 20,
+    marginBottom: 4,
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   detailCard: {
     backgroundColor: "rgba(0,0,0,0.25)",

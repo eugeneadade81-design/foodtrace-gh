@@ -88,6 +88,7 @@ export interface ProductScanResult {
   scanCount?: number;
   reason?: string | null;
   recommendedAction?: string;
+  imageUrl?: string | null;
 }
 
 export type SpeechLanguage = "en" | "tw";
@@ -323,6 +324,7 @@ export interface CreateProductBatchRequest {
   qualityChecks?: unknown;
   packagingDate: string;
   expiryDate: string;
+  imageUrl?: string | null;
 }
 
 export interface CreateProductBatchResponse {
@@ -499,6 +501,7 @@ export interface CreateDrugBatchRequest {
   quantityReceived: number;
   quantityRemaining?: number;
   supplierName?: string | null;
+  imageUrl?: string | null;
 }
 
 export interface CreateDrugBatchResponse {
@@ -534,6 +537,7 @@ export interface DrugScanResult {
   scanCount?: number;
   reason?: string | null;
   recommendedAction?: string;
+  imageUrl?: string | null;
 }
 
 export interface User {

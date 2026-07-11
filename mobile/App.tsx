@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  BackHandler,
+  Image,
   Platform,
   Pressable,
   SafeAreaView,
@@ -13,6 +15,7 @@ import {
 import Constants from "expo-constants";
 import { Audio } from "expo-av";
 import * as Speech from "expo-speech";
+import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "expo-sqlite/kv-store";
 import {
   USER_ROLES,
@@ -120,6 +123,7 @@ const defaultApiBase = resolveDefaultApiBase();
 const historyKeyFor = (userId?: string | null) =>
   `foodtrace.consumer.history.${userId ?? "anon"}`;
 const apiBaseKey = "foodtrace.apiBase.v1";
+const sessionKey = "foodtrace.session.v1";
 
 const roleLabels: Record<string, string> = {
   consumer: "Consumer",
@@ -214,6 +218,7 @@ export default function App() {
   const [ingredientSources, setIngredientSources] = useState("farm inputs");
   const [processingSteps, setProcessingSteps] = useState("mix,heat,pack");
   const [qualityChecks, setQualityChecks] = useState("visual pass");
+  const [batchImage, setBatchImage] = useState<string | null>(null);
   const [recallBatchId, setRecallBatchId] = useState("");
   const [recallReason, setRecallReason] = useState("Possible contamination");
   const [recallType, setRecallType] = useState<"manufacturer" | "regulator">("manufacturer");
@@ -254,6 +259,7 @@ export default function App() {
   const [drugQuantityReceived, setDrugQuantityReceived] = useState("100");
   const [drugQuantityRemaining, setDrugQuantityRemaining] = useState("95");
   const [drugSupplierName, setDrugSupplierName] = useState("Global Med Supplies");
+  const [drugBatchImage, setDrugBatchImage] = useState<string | null>(null);
   const [drugRecallBatchId, setDrugRecallBatchId] = useState("");
   const [drugRecallReason, setDrugRecallReason] = useState("Quality issue");
 
@@ -281,6 +287,28 @@ export default function App() {
       } catch { /* ignore */ }
     })();
   }, []);
+
+  // Restore a signed-in session across app restarts (backgrounding, low-memory
+  // kills, or a full relaunch previously always dropped the user back to login).
+  useEffect(() => {
+    void (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(sessionKey);
+        if (saved) setSession(JSON.parse(saved) as AuthResponse);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // Let the Android hardware back button step back through in-app views
+  // instead of exiting the app whenever we're not already at the root.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (portalView !== "portal") { setPortalView("portal"); return true; }
+      if (consumerTab !== "home") { setConsumerTab("home"); return true; }
+      return false;
+    });
+    return () => sub.remove();
+  }, [portalView, consumerTab]);
 
   // Load this user's own scan history whenever the signed-in user changes.
   useEffect(() => {
@@ -437,6 +465,7 @@ export default function App() {
       const data = await readJsonResponse<AuthResponse>(response);
       setSession(data);
       setAuthStatus("");
+      try { await AsyncStorage.setItem(sessionKey, JSON.stringify(data)); } catch { /* best effort */ }
     } catch (error) {
       const msg = getFriendlyError(error);
       // Surface duplicate-phone error clearly
@@ -449,6 +478,7 @@ export default function App() {
 
   function signOut() {
     setSession(null);
+    void AsyncStorage.removeItem(sessionKey).catch(() => { /* best effort */ });
     setAuthStatus("");
     setConsumerTab("home");
     setPortalView("portal");
@@ -654,13 +684,21 @@ export default function App() {
     } catch (error) { setManufacturerStatus(getFriendlyError(error)); }
   }
 
+  async function pickBatchPhoto() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { setManufacturerStatus("Photo permission is needed to add a picture."); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.5, base64: true });
+    if (!result.canceled && result.assets[0]?.base64) setBatchImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+  }
+
   async function createManufacturerBatch() {
     if (!session?.token) return;
     setManufacturerStatus("Creating batch…");
     try {
-      const payload: CreateProductBatchRequest = { batchNumber, ingredientSources: [ingredientSources], processingSteps: processingSteps.split(",").map((s) => s.trim()).filter(Boolean), qualityChecks: [qualityChecks], packagingDate, expiryDate };
+      const payload: CreateProductBatchRequest = { batchNumber, ingredientSources: [ingredientSources], processingSteps: processingSteps.split(",").map((s) => s.trim()).filter(Boolean), qualityChecks: [qualityChecks], packagingDate, expiryDate, imageUrl: batchImage };
       const data = await readJsonResponse<CreateProductBatchResponse>(await fetch(`${apiBase}/manufacturer/batches`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
       setManufacturerStatus(`Batch created. QR: ${data.qrCode.codeString}`);
+      setBatchImage(null);
       await loadManufacturerDashboard();
     } catch (error) { setManufacturerStatus(getFriendlyError(error)); }
   }
@@ -743,15 +781,23 @@ export default function App() {
     } catch (error) { setPharmacyStatus(getFriendlyError(error)); }
   }
 
+  async function pickDrugBatchPhoto() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { setPharmacyStatus("Photo permission is needed to add a picture."); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.5, base64: true });
+    if (!result.canceled && result.assets[0]?.base64) setDrugBatchImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+  }
+
   async function createDrugBatch() {
     if (!session?.token) return;
     const firstDrugId = pharmacyDashboard?.drugs[0]?.id ?? "";
     if (!firstDrugId) { setPharmacyStatus("Create a drug record first."); return; }
     setPharmacyStatus("Creating batch…");
     try {
-      const payload: CreateDrugBatchRequest = { drugId: firstDrugId, batchNumber: drugBatchNumber, manufactureDate: drugManufactureDate, expiryDate: drugExpiryDate, quantityReceived: Number(drugQuantityReceived), quantityRemaining: Number(drugQuantityRemaining), supplierName: drugSupplierName || null };
+      const payload: CreateDrugBatchRequest = { drugId: firstDrugId, batchNumber: drugBatchNumber, manufactureDate: drugManufactureDate, expiryDate: drugExpiryDate, quantityReceived: Number(drugQuantityReceived), quantityRemaining: Number(drugQuantityRemaining), supplierName: drugSupplierName || null, imageUrl: drugBatchImage };
       const data = await readJsonResponse<CreateDrugBatchResponse>(await fetch(`${apiBase}/drug/batches`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
       setPharmacyStatus(`Batch created. QR: ${data.qrCode.codeString}`);
+      setDrugBatchImage(null);
       await loadPharmacyDashboard();
     } catch (error) { setPharmacyStatus(getFriendlyError(error)); }
   }
@@ -1202,6 +1248,8 @@ export default function App() {
               <TextInput placeholder="Ingredient sources" placeholderTextColor="#748089" style={s.input} value={ingredientSources} onChangeText={setIngredientSources} />
               <TextInput placeholder="Processing steps (comma-separated)" placeholderTextColor="#748089" style={s.input} value={processingSteps} onChangeText={setProcessingSteps} />
               <TextInput placeholder="Quality checks" placeholderTextColor="#748089" style={s.input} value={qualityChecks} onChangeText={setQualityChecks} />
+              {batchImage ? <Image source={{ uri: batchImage }} style={s.batchPhotoPreview} /> : null}
+              <Pressable style={s.outlineBtn} onPress={() => void pickBatchPhoto()}><Text style={s.outlineBtnText}>{batchImage ? "Change Photo" : "Add Product Photo"}</Text></Pressable>
               <Pressable style={s.outlineBtn} onPress={() => void createManufacturerBatch()}><Text style={s.outlineBtnText}>Create Batch & Generate QR</Text></Pressable>
             </FormCard>
 
@@ -1319,6 +1367,8 @@ export default function App() {
               <TextInput placeholder="Expiry date (YYYY-MM-DD)" placeholderTextColor="#748089" style={s.input} value={drugExpiryDate} onChangeText={setDrugExpiryDate} />
               <TextInput placeholder="Quantity received" placeholderTextColor="#748089" style={s.input} value={drugQuantityReceived} onChangeText={setDrugQuantityReceived} keyboardType="numeric" />
               <TextInput placeholder="Supplier name" placeholderTextColor="#748089" style={s.input} value={drugSupplierName} onChangeText={setDrugSupplierName} />
+              {drugBatchImage ? <Image source={{ uri: drugBatchImage }} style={s.batchPhotoPreview} /> : null}
+              <Pressable style={s.outlineBtn} onPress={() => void pickDrugBatchPhoto()}><Text style={s.outlineBtnText}>{drugBatchImage ? "Change Photo" : "Add Product Photo"}</Text></Pressable>
               <Pressable style={s.outlineBtn} onPress={() => void createDrugBatch()}><Text style={s.outlineBtnText}>Add Batch & Generate QR</Text></Pressable>
             </FormCard>
 
@@ -1404,6 +1454,7 @@ const s = StyleSheet.create({
   roleHintSub: { color: "#748089", fontSize: 12, marginTop: 4 },
 
   input: { backgroundColor: "#0b0f13", borderRadius: 12, minHeight: 52, paddingHorizontal: 16, color: "#f4f4ef", fontSize: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", marginBottom: 10 },
+  batchPhotoPreview: { width: "100%", height: 160, borderRadius: 12, marginBottom: 10, backgroundColor: "#0b0f13" },
   hint: { color: "#748089", fontSize: 12, lineHeight: 18, marginBottom: 12 },
 
   primaryBtn: { backgroundColor: "#77c7a2", borderRadius: 14, minHeight: 52, alignItems: "center", justifyContent: "center", paddingHorizontal: 20, marginBottom: 4 },
