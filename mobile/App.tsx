@@ -1098,27 +1098,62 @@ export default function App() {
           ) : (
             /* HOME */
             <ScrollView contentContainerStyle={s.scrollPad}>
-              <View style={s.homeHero}>
-                <Text style={s.homeKicker}>WELCOME BACK</Text>
-                <Text style={s.homeTitle}>{session.user.fullName || "FoodTrace User"}</Text>
-                <Text style={s.homeBody}>Scan a QR code on food or medicine packaging to instantly check its safety status.</Text>
-              </View>
-              <Pressable style={[s.primaryBtn, { marginHorizontal: 0 }]} onPress={() => setConsumerTab("scanner")}>
-                <Text style={s.primaryBtnText}>Open Scanner</Text>
-              </Pressable>
-              {lastScanResult ? (
-                <Pressable style={[s.card, { marginTop: 12 }]} onPress={() => setConsumerTab("result")}>
-                  <Text style={s.cardKicker}>LAST SCAN</Text>
-                  <Text style={s.cardTitle}>{lastScanResult.title}</Text>
-                  <View style={[s.statusBadge, statusBadgeStyle(lastScanResult.status)]}>
-                    <Text style={s.statusBadgeText}>{lastScanResult.status.toUpperCase()}</Text>
-                  </View>
-                  <Text style={s.cardSub}>Tap to view full result</Text>
-                </Pressable>
-              ) : (
-                <View style={[s.card, { marginTop: 12, alignItems: "center", paddingVertical: 32 }]}>
-                  <Text style={s.chatEmptyText}>No scans yet. Tap the Scan tab to get started.</Text>
+              <Text style={s.homeGreeting}>Hi, {(session.user.fullName || "there").split(" ")[0]}</Text>
+
+              <Pressable style={s.scanHero} onPress={() => setConsumerTab("scanner")}>
+                <View style={[s.scanCorner, s.scanCornerTL]} />
+                <View style={[s.scanCorner, s.scanCornerTR]} />
+                <View style={[s.scanCorner, s.scanCornerBL]} />
+                <View style={[s.scanCorner, s.scanCornerBR]} />
+                <View style={s.scanIconRing}>
+                  <Text style={s.scanIconText}>⊡</Text>
                 </View>
+                <Text style={s.scanHeroTitle}>Tap to scan a product</Text>
+                <Text style={s.scanHeroSub}>Know before you buy</Text>
+              </Pressable>
+
+              <View style={s.bentoRow}>
+                <View style={s.bentoBig}>
+                  <Text style={s.bentoBigNumber}>{consumerHistory.length === 0 ? "—" : `${Math.round((consumerHistory.filter((h) => h.status !== "recalled").length / consumerHistory.length) * 100)}%`}</Text>
+                  <Text style={s.bentoBigLabel}>Safe scans so far</Text>
+                </View>
+                <View style={s.bentoStack}>
+                  <View style={s.bentoMiniGood}>
+                    <Text style={s.bentoMiniNumberGood}>{consumerHistory.length}</Text>
+                    <Text style={s.bentoMiniLabelGood}>Scans</Text>
+                  </View>
+                  <View style={s.bentoMiniBad}>
+                    <Text style={s.bentoMiniNumberBad}>{consumerHistory.filter((h) => h.status === "recalled").length}</Text>
+                    <Text style={s.bentoMiniLabelBad}>Recalls caught</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={s.homeSectionRow}>
+                <Text style={s.homeSectionTitle}>Recent scans</Text>
+                {consumerHistory.length > 0 ? (
+                  <Pressable onPress={() => setConsumerTab("history")}><Text style={s.homeSectionLink}>See all</Text></Pressable>
+                ) : null}
+              </View>
+
+              {consumerHistory.length === 0 ? (
+                <View style={[s.card, { alignItems: "center", paddingVertical: 32 }]}>
+                  <Text style={s.chatEmptyText}>No scans yet. Tap above to get started.</Text>
+                </View>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
+                  {consumerHistory.slice(0, 8).map((item, i) => (
+                    <Pressable key={i} style={s.recentTile} onPress={() => setConsumerTab("history")}>
+                      <View style={[s.recentTileIconWrap, item.status === "recalled" ? s.recentTileIconWrapBad : s.recentTileIconWrapGood]}>
+                        <Text style={s.recentTileIcon}>{item.status === "recalled" ? "✕" : item.status === "caution" ? "!" : "✓"}</Text>
+                      </View>
+                      <Text style={s.recentTileTitle} numberOfLines={1}>{item.title}</Text>
+                      <Text style={item.status === "recalled" ? s.recentTileStatusBad : s.recentTileStatusGood}>
+                        {item.status === "recalled" ? "Recalled" : item.status === "caution" ? "Caution" : "Safe"}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
               )}
             </ScrollView>
           )}
@@ -1219,7 +1254,7 @@ export default function App() {
         {isFarmer ? (
           <>
             <View style={s.card}>
-              <Text style={s.cardKicker}>DASHBOARD</Text>
+              <Text style={[s.cardKicker, { color: "#77c7a2" }]}>FARMER · DASHBOARD</Text>
               <Pressable style={s.primaryBtn} onPress={() => void loadFoodDashboard()}>
                 <Text style={s.primaryBtnText}>Load Dashboard</Text>
               </Pressable>
@@ -1281,7 +1316,7 @@ export default function App() {
         {isManufacturer ? (
           <>
             <View style={s.card}>
-              <Text style={s.cardKicker}>DASHBOARD</Text>
+              <Text style={[s.cardKicker, { color: "#E0A83B" }]}>MANUFACTURER · DASHBOARD</Text>
               <Pressable style={s.primaryBtn} onPress={() => void loadManufacturerDashboard()}><Text style={s.primaryBtnText}>Load Dashboard</Text></Pressable>
               {manufacturerStatus ? <Text style={[s.statusMsg, isErrorMsg(manufacturerStatus) ? s.statusErr : s.statusOk]}>{manufacturerStatus}</Text> : null}
               {manufacturerDashboard ? (
@@ -1333,7 +1368,7 @@ export default function App() {
         {isRegulator ? (
           <>
             <View style={s.card}>
-              <Text style={s.cardKicker}>DASHBOARD</Text>
+              <Text style={[s.cardKicker, { color: "#E27D7D" }]}>REGULATOR · DASHBOARD</Text>
               <Pressable style={s.primaryBtn} onPress={() => void loadRegulatorDashboard()}><Text style={s.primaryBtnText}>Load Dashboard</Text></Pressable>
               {regulatorStatus ? <Text style={[s.statusMsg, isErrorMsg(regulatorStatus) ? s.statusErr : s.statusOk]}>{regulatorStatus}</Text> : null}
               {regulatorDashboard ? (
@@ -1380,7 +1415,7 @@ export default function App() {
         {isPharmacist ? (
           <>
             <View style={s.card}>
-              <Text style={s.cardKicker}>DASHBOARD</Text>
+              <Text style={[s.cardKicker, { color: "#5CA8E0" }]}>PHARMACY · DASHBOARD</Text>
               <Pressable style={s.primaryBtn} onPress={() => void loadPharmacyDashboard()}><Text style={s.primaryBtnText}>Load Dashboard</Text></Pressable>
               {pharmacyStatus ? <Text style={[s.statusMsg, isErrorMsg(pharmacyStatus) ? s.statusErr : s.statusOk]}>{pharmacyStatus}</Text> : null}
               {pharmacyDashboard ? (
@@ -1569,6 +1604,44 @@ const s = StyleSheet.create({
   homeTitle: { color: "#f4f4ef", fontSize: 24, fontWeight: "800", marginBottom: 8 },
   homeBody: { color: "#b6cfc3", lineHeight: 22 },
 
+  homeGreeting: { color: "#f4f4ef", fontSize: 20, fontWeight: "700", marginBottom: 14 },
+
+  scanHero: { height: 168, borderRadius: 22, backgroundColor: "#10241A", alignItems: "center", justifyContent: "center", marginBottom: 14, position: "relative", overflow: "hidden" },
+  scanCorner: { position: "absolute", width: 22, height: 22, borderColor: "#77c7a2" },
+  scanCornerTL: { top: 14, left: 14, borderTopWidth: 2.5, borderLeftWidth: 2.5, borderTopLeftRadius: 6 },
+  scanCornerTR: { top: 14, right: 14, borderTopWidth: 2.5, borderRightWidth: 2.5, borderTopRightRadius: 6 },
+  scanCornerBL: { bottom: 14, left: 14, borderBottomWidth: 2.5, borderLeftWidth: 2.5, borderBottomLeftRadius: 6 },
+  scanCornerBR: { bottom: 14, right: 14, borderBottomWidth: 2.5, borderRightWidth: 2.5, borderBottomRightRadius: 6 },
+  scanIconRing: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#173B29", alignItems: "center", justifyContent: "center" },
+  scanIconText: { fontSize: 22, color: "#97ECC6" },
+  scanHeroTitle: { color: "#f4f4ef", fontSize: 14, fontWeight: "700", marginTop: 10 },
+  scanHeroSub: { color: "#7C9C8C", fontSize: 12, marginTop: 2 },
+
+  bentoRow: { flexDirection: "row", gap: 10, marginBottom: 18 },
+  bentoBig: { flex: 1, backgroundColor: "#151A15", borderRadius: 18, padding: 16, borderWidth: 0.5, borderColor: "#26302A", justifyContent: "center" },
+  bentoBigNumber: { color: "#f4f4ef", fontSize: 28, fontWeight: "800" },
+  bentoBigLabel: { color: "#7C9C8C", fontSize: 11, marginTop: 4 },
+  bentoStack: { flex: 1, gap: 10 },
+  bentoMiniGood: { flex: 1, backgroundColor: "#173B29", borderRadius: 14, padding: 10, justifyContent: "center" },
+  bentoMiniNumberGood: { color: "#97ECC6", fontSize: 17, fontWeight: "800" },
+  bentoMiniLabelGood: { color: "#7C9C8C", fontSize: 10, marginTop: 1 },
+  bentoMiniBad: { flex: 1, backgroundColor: "#3A1414", borderRadius: 14, padding: 10, justifyContent: "center" },
+  bentoMiniNumberBad: { color: "#F0997B", fontSize: 17, fontWeight: "800" },
+  bentoMiniLabelBad: { color: "#C7897A", fontSize: 10, marginTop: 1 },
+
+  homeSectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 },
+  homeSectionTitle: { color: "#f4f4ef", fontSize: 15, fontWeight: "700" },
+  homeSectionLink: { color: "#7C9C8C", fontSize: 12 },
+
+  recentTile: { width: 96, backgroundColor: "#151A15", borderRadius: 16, padding: 10, borderWidth: 0.5, borderColor: "#26302A" },
+  recentTileIconWrap: { width: "100%", height: 54, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  recentTileIconWrapGood: { backgroundColor: "#173B29" },
+  recentTileIconWrapBad: { backgroundColor: "#3A1414" },
+  recentTileIcon: { fontSize: 18, color: "#f4f4ef", fontWeight: "800" },
+  recentTileTitle: { color: "#f4f4ef", fontSize: 11, fontWeight: "600", marginTop: 6 },
+  recentTileStatusGood: { color: "#97ECC6", fontSize: 9, marginTop: 2 },
+  recentTileStatusBad: { color: "#F0997B", fontSize: 9, marginTop: 2 },
+
   // portal hero
   portalHero: { backgroundColor: "#0d3428", borderRadius: 20, padding: 20, marginBottom: 4 },
   portalTabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
@@ -1579,9 +1652,9 @@ const s = StyleSheet.create({
 
   // metrics
   metricGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 14 },
-  metricItem: { backgroundColor: "#0b0f13", borderRadius: 12, padding: 12, minWidth: 90, alignItems: "center" },
-  metricVal: { color: "#f4f4ef", fontWeight: "700", fontSize: 18, marginBottom: 2 },
-  metricLabel: { color: "#748089", fontSize: 11, textAlign: "center" },
+  metricItem: { backgroundColor: "#151A15", borderRadius: 16, padding: 14, minWidth: 96, flex: 1, alignItems: "flex-start", borderWidth: 0.5, borderColor: "#26302A" },
+  metricVal: { color: "#f4f4ef", fontWeight: "800", fontSize: 22, marginBottom: 3 },
+  metricLabel: { color: "#7C9C8C", fontSize: 11 },
   statusMsg: { marginTop: 10, fontSize: 13 },
   statusOk: { color: "#77c7a2" },
   statusErr: { color: "#f87171" },
