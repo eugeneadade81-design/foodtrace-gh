@@ -14,6 +14,7 @@ ios/
 target/
 Thumbs.db
 Desktop.ini
+tools/
 
 # Python
 __pycache__/
@@ -29,3 +30,6 @@ demo_qr_images/
 
 # Local file storage fallback (QR codes, recall evidence) — runtime-generated
 backend/uploads/
+
+# Claude Code local config
+.claude/

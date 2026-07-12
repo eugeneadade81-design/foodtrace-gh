@@ -1,0 +1,7 @@
+# Test profile: the build has no Redis server, so use Spring's in-memory
+# "simple" cache (ConcurrentMapCacheManager) instead of RedisCacheManager.
+# RedisConfig is excluded under @Profile("!test"), so @Cacheable still works
+# end-to-end — it just caches in memory for the duration of the test.
+spring:
+  cache:
+    type: simple

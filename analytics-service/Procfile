@@ -1,0 +1,5 @@
+# Elastic Beanstalk (Java SE platform) process definition.
+# EB injects PORT=5000 and proxies it behind nginx, so bind Spring there.
+# All DB/Redis/S3/SMS/JWT config comes from environment properties
+# (.ebextensions/env.config + secrets set via `eb setenv`).
+web: java -Dserver.port=5000 -jar application.jar
