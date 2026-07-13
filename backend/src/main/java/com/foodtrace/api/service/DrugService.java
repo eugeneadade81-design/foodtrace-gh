@@ -14,10 +14,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class DrugService {
   private final JdbcClient jdbc;
   private final QrCodeService qrCodeService;
+  private final NotificationService notifications;
 
-  public DrugService(JdbcClient jdbc, QrCodeService qrCodeService) {
+  public DrugService(JdbcClient jdbc, QrCodeService qrCodeService, NotificationService notifications) {
     this.jdbc = jdbc;
     this.qrCodeService = qrCodeService;
+    this.notifications = notifications;
   }
 
   public Map<String, Object> dashboard(CurrentUser user) {
@@ -209,6 +211,14 @@ public class DrugService {
         .param("issuedBy", user.id())
         .param("reason", reason)
         .query(DatabaseRowMapper::toMap).single();
+
+    String drugName = jdbc.sql("""
+        SELECT d.name FROM drug_batches db JOIN drugs d ON d.id = db.drug_id WHERE db.id = :id
+        """)
+        .param("id", UUID.fromString(batchId))
+        .query(String.class).optional().orElse("A medicine");
+    notifications.notifyDrugScannersOfRecall(batchId, drugName);
+
     return Map.of("recall", recall);
   }
 

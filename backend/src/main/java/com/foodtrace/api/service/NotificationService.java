@@ -53,6 +53,23 @@ public class NotificationService {
     }
   }
 
+  /** Notifies every user who previously scanned this drug batch that it's now recalled. */
+  public void notifyDrugScannersOfRecall(String drugBatchId, String drugName) {
+    List<String> scannerIds = jdbc.sql("""
+        SELECT DISTINCT dcs.user_id
+        FROM drug_consumer_scans dcs
+        JOIN drug_qr_codes q ON q.id = dcs.drug_qr_code_id
+        WHERE q.drug_batch_id = CAST(:batchId AS uuid) AND dcs.user_id IS NOT NULL
+        """)
+        .param("batchId", drugBatchId)
+        .query(String.class)
+        .list();
+    for (String userId : scannerIds) {
+      notify(userId, "recall", "Medicine you scanned was recalled",
+          drugName + " has just been recalled. Do not use it — check the app for details.", null);
+    }
+  }
+
   public void notifyRegulators(String type, String title, String body, String postId) {
     List<String> regulators = jdbc.sql("SELECT id FROM users WHERE role = 'regulator' AND is_active = true")
         .query(String.class).list();

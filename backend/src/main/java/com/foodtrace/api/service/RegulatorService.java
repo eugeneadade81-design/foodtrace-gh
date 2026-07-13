@@ -164,6 +164,12 @@ public class RegulatorService {
           .param("reason", reason)
           .query(DatabaseRowMapper::toMap).single();
       recallSmsNotifier.notifyDrugRecall(UUID.fromString(batchId), reason);
+      String drugName = jdbc.sql("""
+          SELECT d.name FROM drug_batches db JOIN drugs d ON d.id = db.drug_id WHERE db.id = :id
+          """)
+          .param("id", UUID.fromString(batchId))
+          .query(String.class).optional().orElse("A medicine");
+      notifications.notifyDrugScannersOfRecall(batchId, drugName);
       return Map.of("recall", recall);
     }
 
@@ -188,7 +194,6 @@ public class RegulatorService {
         .param("districts", districts)
         .query(DatabaseRowMapper::toMap).single();
     recallSmsNotifier.notifyFoodRecall(UUID.fromString(batchId), reason);
-    // consumer_scans only tracks food QR scans, not drug ones — see drug branch above.
     String productName = jdbc.sql("SELECT COALESCE(product_name, batch_number) FROM product_batches WHERE id = :batchId")
         .param("batchId", UUID.fromString(batchId)).query(String.class).single();
     notifications.notifyScannersOfRecall(batchId, productName);

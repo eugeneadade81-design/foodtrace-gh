@@ -49,7 +49,7 @@ public class UssdService {
     String code = parts[1].trim();
     Map<String, Object> result = scanService.scanFood(code, null);
     if ("not_found".equals(result.get("status"))) {
-      result = scanService.scanDrug(code);
+      result = scanService.scanDrug(code, null);
     }
     String title = String.valueOf(result.getOrDefault("title", "No match found"));
     String summary = String.valueOf(result.getOrDefault("summary", "We could not find that code."));
