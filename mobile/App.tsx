@@ -1369,6 +1369,38 @@ export default function App() {
               </View>
             ) : null}
 
+            {foodDashboard && foodDashboard.cropCycles.length > 0 ? (() => {
+              const cycles = foodDashboard.cropCycles;
+              const ready = cycles.filter((c) => c.marketReady).length;
+              const overdue = cycles.filter((c) => !c.marketReady && (c.daysToSafeHarvest ?? 1) < 0).length;
+              const growing = cycles.length - ready - overdue;
+              const segments: [string, number, string][] = [
+                ["Market-ready", ready, "#4ade80"],
+                ["Growing", growing, "#77c7a2"],
+                ["Overdue", overdue, "#f87171"],
+              ];
+              return (
+                <View style={[s.card, { overflow: "hidden" }]}>
+                  <LinearGradient colors={["#1a3d2c", "#151A15"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                  <Text style={[s.cardKicker, { color: "#77c7a2" }]}>HARVEST STATUS</Text>
+                  <View style={s.pipelineBar}>
+                    {segments.filter(([, count]) => count > 0).map(([label, count, color]) => (
+                      <View key={label} style={[s.pipelineSegment, { flex: count, backgroundColor: color }]} />
+                    ))}
+                  </View>
+                  <View style={s.pipelineLegendRow}>
+                    {segments.map(([label, count, color]) => (
+                      <View key={label} style={s.pipelineLegendItem}>
+                        <View style={[s.pipelineDot, { backgroundColor: color }]} />
+                        <Text style={s.pipelineLegendText}>{label} · {count}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={s.pipelineTotal}>{cycles.length} crop cycle{cycles.length === 1 ? "" : "s"} tracked</Text>
+                </View>
+              );
+            })() : null}
+
             <FormCard title="Create Farm">
               <TextInput placeholder="Farm name" placeholderTextColor="#748089" style={s.input} value={farmName} onChangeText={setFarmName} />
               <TextInput placeholder="District" placeholderTextColor="#748089" style={s.input} value={farmDistrict} onChangeText={setFarmDistrict} />

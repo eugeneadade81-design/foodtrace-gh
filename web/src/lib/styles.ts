@@ -61,7 +61,7 @@ export const styles: Record<string, CSSProperties> = {
   card: {
     padding: 24,
     borderRadius: 28,
-    background: "#11161b",
+    background: "linear-gradient(135deg, #182620 0%, #11161b 60%)",
     border: "1px solid rgba(255,255,255,0.08)",
     alignSelf: "start",
   },
@@ -250,14 +250,14 @@ export const styles: Record<string, CSSProperties> = {
     gridColumn: "1 / -1",
     padding: 28,
     borderRadius: 28,
-    background: "#10161b",
+    background: "linear-gradient(135deg, #17352a 0%, #10161b 55%)",
     border: "1px solid rgba(255,255,255,0.08)",
   },
   foodCard: {
     gridColumn: "1 / -1",
     padding: 28,
     borderRadius: 28,
-    background: "#10161b",
+    background: "linear-gradient(135deg, #17352a 0%, #10161b 55%)",
     border: "1px solid rgba(255,255,255,0.08)",
   },
   scanKicker: {
@@ -333,7 +333,7 @@ export const styles: Record<string, CSSProperties> = {
     marginTop: 18,
     padding: 20,
     borderRadius: 24,
-    background: "#0b0f13",
+    background: "linear-gradient(135deg, #14251d 0%, #0b0f13 60%)",
     border: "1px solid rgba(255,255,255,0.08)",
   },
   qrCard: {
@@ -383,6 +383,58 @@ export const styles: Record<string, CSSProperties> = {
     color: "#dce7e2",
     fontWeight: 600,
   },
+  weatherCard: {
+    marginTop: 18,
+    padding: 20,
+    borderRadius: 24,
+    background: "linear-gradient(135deg, #173a2c 0%, #0b0f13 65%)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  weatherNow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 14,
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  weatherTemp: {
+    fontSize: 40,
+    fontWeight: 800,
+    color: "#f4f4ef",
+    margin: 0,
+  },
+  weatherCondition: {
+    color: "#77c7a2",
+    fontSize: 14,
+    margin: "4px 0 0",
+  },
+  weatherStatsCol: {
+    display: "grid",
+    gap: 4,
+    justifyItems: "end",
+    color: "#a9c7b8",
+    fontSize: 13,
+  },
+  weatherForecastRow: {
+    display: "flex",
+    gap: 10,
+    marginTop: 18,
+    overflowX: "auto",
+    paddingBottom: 4,
+  },
+  weatherDayTile: {
+    flex: "0 0 auto",
+    minWidth: 84,
+    padding: 12,
+    borderRadius: 16,
+    background: "#0d1216",
+    border: "1px solid rgba(255,255,255,0.08)",
+    textAlign: "center",
+  },
+  weatherDayLabel: { color: "#8fa39a", fontSize: 12, margin: "0 0 6px" },
+  weatherDayTemp: { color: "#f4f4ef", fontSize: 14, fontWeight: 700, margin: 0 },
+  weatherDayRain: { color: "#5CA8E0", fontSize: 11, margin: "4px 0 0" },
 };
 
 export function scanBadgeStyle(status: ProductScanResult["status"]): CSSProperties {

@@ -6,6 +6,7 @@ import type {
   CreateInputLogRequest,
   FoodDashboardResponse,
   OfflineSyncRequest,
+  WeatherResponse,
 } from "@foodtrace/shared";
 import { apiBase, readJsonResponse } from "../lib/api";
 import { styles } from "../lib/styles";
@@ -16,6 +17,7 @@ interface Props {
 
 export function FarmerSection({ session }: Props) {
   const [foodDashboard, setFoodDashboard] = useState<FoodDashboardResponse | null>(null);
+  const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [foodStatus, setFoodStatus] = useState("Food module ready");
   const [farmerStatus, setFarmerStatus] = useState("Farmer portal ready");
   const [farmName, setFarmName] = useState("Agyemang Farm");
@@ -50,8 +52,23 @@ export function FarmerSection({ session }: Props) {
       setFoodStatus("Food dashboard loaded.");
       if (!cycleFarmId && data.dashboard.farms[0]?.id) setCycleFarmId(data.dashboard.farms[0].id);
       if (!inputCycleId && data.dashboard.cropCycles[0]?.id) setInputCycleId(data.dashboard.cropCycles[0].id);
+      void loadWeather(data.dashboard.farms[0]?.region);
     } catch (error) {
       setFoodStatus(error instanceof Error ? error.message : "Could not load dashboard");
+    }
+  }
+
+  async function loadWeather(region?: string) {
+    try {
+      const qs = region ? `?region=${encodeURIComponent(region)}` : "";
+      const response = await fetch(`${apiBase}/food/weather${qs}`, {
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      if (!response.ok) return;
+      const data = (await readJsonResponse(response)) as WeatherResponse;
+      setWeather(data);
+    } catch {
+      // weather is a nice-to-have — dashboard still works without it
     }
   }
 
@@ -197,6 +214,35 @@ export function FarmerSection({ session }: Props) {
           <p style={styles.resultSummary}>Latest crop cycle: {foodDashboard.cropCycles[0]?.cropType ?? "None yet"}</p>
           <p style={styles.resultSummary}>Latest input: {foodDashboard.inputLogs[0]?.productName ?? "None yet"}</p>
           <p style={styles.resultSummary}>Latest input EPA status: {foodDashboard.inputLogs[0]?.epaApprovalStatus ?? "N/A"}</p>
+        </article>
+      ) : null}
+      {weather ? (
+        <article style={styles.weatherCard}>
+          <p style={styles.scanKicker}>{weather.region} · Weather</p>
+          <div style={styles.weatherNow}>
+            <div>
+              <p style={styles.weatherTemp}>{Math.round(weather.current.temperatureC)}°C</p>
+              <p style={styles.weatherCondition}>{weather.current.condition}</p>
+            </div>
+            <div style={styles.weatherStatsCol}>
+              <span>Humidity {Math.round(weather.current.humidityPercent)}%</span>
+              <span>Wind {Math.round(weather.current.windSpeedKmh)} km/h</span>
+              <span>Rain {weather.current.precipitationMm} mm</span>
+            </div>
+          </div>
+          <div style={styles.weatherForecastRow}>
+            {weather.forecast.time.map((day, i) => (
+              <div key={day} style={styles.weatherDayTile}>
+                <p style={styles.weatherDayLabel}>
+                  {i === 0 ? "Today" : new Date(day).toLocaleDateString("en-GB", { weekday: "short" })}
+                </p>
+                <p style={styles.weatherDayTemp}>
+                  {Math.round(weather.forecast.temperature_2m_max[i])}°/{Math.round(weather.forecast.temperature_2m_min[i])}°
+                </p>
+                <p style={styles.weatherDayRain}>{weather.forecast.precipitation_probability_max[i]}% rain</p>
+              </div>
+            ))}
+          </div>
         </article>
       ) : null}
     </section>
