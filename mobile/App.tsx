@@ -1429,6 +1429,38 @@ export default function App() {
               ) : null}
             </View>
 
+            {manufacturerDashboard && manufacturerDashboard.batches.length > 0 ? (() => {
+              const counts = { active: 0, recalled: 0, under_investigation: 0, expired: 0 };
+              manufacturerDashboard.batches.forEach((b) => { counts[b.recallStatus] = (counts[b.recallStatus] ?? 0) + 1; });
+              const total = manufacturerDashboard.batches.length;
+              const segments: [string, number, string][] = [
+                ["Active", counts.active, "#4ade80"],
+                ["Under investigation", counts.under_investigation, "#E0A83B"],
+                ["Recalled", counts.recalled, "#f87171"],
+                ["Expired", counts.expired, "#5F5E5A"],
+              ];
+              return (
+                <View style={[s.card, { overflow: "hidden" }]}>
+                  <LinearGradient colors={["#3d2e10", "#151A15"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                  <Text style={[s.cardKicker, { color: "#E0A83B" }]}>BATCH PIPELINE</Text>
+                  <View style={s.pipelineBar}>
+                    {segments.filter(([, count]) => count > 0).map(([label, count, color]) => (
+                      <View key={label} style={[s.pipelineSegment, { flex: count, backgroundColor: color }]} />
+                    ))}
+                  </View>
+                  <View style={s.pipelineLegendRow}>
+                    {segments.map(([label, count, color]) => (
+                      <View key={label} style={s.pipelineLegendItem}>
+                        <View style={[s.pipelineDot, { backgroundColor: color }]} />
+                        <Text style={s.pipelineLegendText}>{label} · {count}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={s.pipelineTotal}>{total} batch{total === 1 ? "" : "es"} tracked</Text>
+                </View>
+              );
+            })() : null}
+
             <FormCard title="Company Profile">
               <TextInput placeholder="Company name" placeholderTextColor="#748089" style={s.input} value={companyName} onChangeText={setCompanyName} />
               <TextInput placeholder="FDA registration number" placeholderTextColor="#748089" style={s.input} value={fdaRegNumber} onChangeText={setFdaRegNumber} />
@@ -1486,6 +1518,49 @@ export default function App() {
               ) : null}
             </View>
 
+            {regulatorDashboard ? (() => {
+              const { safeScans, cautionScans, recalledScans } = regulatorDashboard.compliance;
+              const totalScans = safeScans + cautionScans + recalledScans;
+              const segments: [string, number, string][] = [
+                ["Safe", safeScans, "#4ade80"],
+                ["Caution", cautionScans, "#E0A83B"],
+                ["Recalled", recalledScans, "#f87171"],
+              ];
+              return (
+                <View style={[s.card, { overflow: "hidden" }]}>
+                  <LinearGradient colors={["#3d1c1c", "#151A15"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                  <Text style={[s.cardKicker, { color: "#E27D7D" }]}>NATIONAL SCAN OVERVIEW</Text>
+                  {totalScans > 0 ? (
+                    <>
+                      <View style={s.pipelineBar}>
+                        {segments.filter(([, count]) => count > 0).map(([label, count, color]) => (
+                          <View key={label} style={[s.pipelineSegment, { flex: count, backgroundColor: color }]} />
+                        ))}
+                      </View>
+                      <View style={s.pipelineLegendRow}>
+                        {segments.map(([label, count, color]) => (
+                          <View key={label} style={s.pipelineLegendItem}>
+                            <View style={[s.pipelineDot, { backgroundColor: color }]} />
+                            <Text style={s.pipelineLegendText}>{label} · {count}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </>
+                  ) : <Text style={s.pipelineTotal}>No scans recorded yet.</Text>}
+                  {regulatorDashboard.analytics.topDistricts.length > 0 ? (
+                    <>
+                      <Text style={[s.pipelineTotal, { marginTop: 14, marginBottom: 6 }]}>Top districts by activity</Text>
+                      <View style={s.districtChipRow}>
+                        {regulatorDashboard.analytics.topDistricts.map((d) => (
+                          <View key={d} style={s.districtChip}><Text style={s.districtChipText}>{d}</Text></View>
+                        ))}
+                      </View>
+                    </>
+                  ) : null}
+                </View>
+              );
+            })() : null}
+
             <FormCard title="Review Report">
               <TextInput placeholder="Report ID" placeholderTextColor="#748089" style={s.input} value={reportId} onChangeText={setReportId} />
               <TextInput placeholder="Status (reviewing/resolved/dismissed)" placeholderTextColor="#748089" style={s.input} value={reportStatus} onChangeText={(v) => setReportStatus(v as typeof reportStatus)} />
@@ -1530,6 +1605,40 @@ export default function App() {
                 </View>
               ) : null}
             </View>
+
+            {pharmacyDashboard && pharmacyDashboard.batches.length > 0 ? (() => {
+              const now = Date.now();
+              const rows = pharmacyDashboard.batches
+                .filter((b) => b.recallStatus !== "recalled")
+                .map((b) => ({ ...b, daysLeft: Math.ceil((new Date(b.expiryDate).getTime() - now) / 86400000) }))
+                .sort((a, b) => a.daysLeft - b.daysLeft)
+                .slice(0, 5);
+              return (
+                <View style={[s.card, { overflow: "hidden" }]}>
+                  <LinearGradient colors={["#12303d", "#151A15"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                  <Text style={[s.cardKicker, { color: "#5CA8E0" }]}>INVENTORY · EXPIRY WATCH</Text>
+                  {rows.map((b) => {
+                    const urgent = b.daysLeft <= 7;
+                    const soon = b.daysLeft <= 30;
+                    const pct = Math.max(0, Math.min(100, 100 - (b.daysLeft / 180) * 100));
+                    const color = b.daysLeft < 0 ? "#f87171" : urgent ? "#f87171" : soon ? "#E0A83B" : "#5CA8E0";
+                    return (
+                      <View key={b.id} style={s.expiryRow}>
+                        <View style={s.expiryRowHead}>
+                          <Text style={s.expiryBatchNumber} numberOfLines={1}>{b.batchNumber}</Text>
+                          <Text style={[s.expiryDaysText, { color }]}>
+                            {b.daysLeft < 0 ? "Expired" : `${b.daysLeft}d left`}
+                          </Text>
+                        </View>
+                        <View style={s.expiryTrack}>
+                          <View style={[s.expiryFill, { width: `${pct}%`, backgroundColor: color }]} />
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })() : null}
 
             <FormCard title="Register Pharmacy">
               <TextInput placeholder="Business name" placeholderTextColor="#748089" style={s.input} value={businessName} onChangeText={setBusinessName} />
@@ -1760,6 +1869,22 @@ const s = StyleSheet.create({
   weatherDayLabel: { color: "#7C9C8C", fontSize: 11, marginBottom: 6 },
   weatherDayTemp: { color: "#f4f4ef", fontSize: 13, fontWeight: "700" },
   weatherDayRain: { color: "#5CA8E0", fontSize: 10, marginTop: 4 },
+  pipelineBar: { flexDirection: "row", height: 10, borderRadius: 6, overflow: "hidden", marginTop: 14, backgroundColor: "#26302A" },
+  pipelineSegment: { height: "100%" },
+  pipelineLegendRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 12 },
+  pipelineLegendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  pipelineDot: { width: 8, height: 8, borderRadius: 4 },
+  pipelineLegendText: { color: "#B9C4BC", fontSize: 12 },
+  pipelineTotal: { color: "#7C9C8C", fontSize: 12, marginTop: 10 },
+  districtChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  districtChip: { backgroundColor: "#151A15", borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14, borderWidth: 0.5, borderColor: "#26302A" },
+  districtChipText: { color: "#E27D7D", fontSize: 12, fontWeight: "600" },
+  expiryRow: { marginTop: 14 },
+  expiryRowHead: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+  expiryBatchNumber: { color: "#f4f4ef", fontSize: 13, fontWeight: "600", flex: 1, marginRight: 8 },
+  expiryDaysText: { fontSize: 12, fontWeight: "700" },
+  expiryTrack: { height: 6, borderRadius: 4, backgroundColor: "#26302A", overflow: "hidden" },
+  expiryFill: { height: "100%", borderRadius: 4 },
   statusMsg: { marginTop: 10, fontSize: 13 },
   statusOk: { color: "#77c7a2" },
   statusErr: { color: "#f87171" },
