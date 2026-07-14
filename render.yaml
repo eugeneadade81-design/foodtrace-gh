@@ -13,7 +13,7 @@ services:
         sync: false
       - key: SMTP_USERNAME
         sync: false
-      - key: RESEND_API_KEY
+      - key: SENDGRID_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
