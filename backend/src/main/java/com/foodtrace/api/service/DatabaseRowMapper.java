@@ -1,5 +1,6 @@
 package com.foodtrace.api.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -9,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 final class DatabaseRowMapper {
+  private static final ObjectMapper JSON = new ObjectMapper();
+
   private DatabaseRowMapper() {
   }
 
@@ -25,6 +28,26 @@ final class DatabaseRowMapper {
   private static Object normalize(Object value) {
     if (value instanceof OffsetDateTime dateTime) {
       return dateTime.toString();
+    }
+    // jsonb/json columns come back as org.postgresql.util.PGobject — unwrap to
+    // a plain Map/List instead of letting Jackson serialize the driver's
+    // internal {type, value} shape. Reflection avoids a compile-time
+    // dependency on the postgresql driver, which is runtime-scoped.
+    if (value != null && "org.postgresql.util.PGobject".equals(value.getClass().getName())) {
+      try {
+        Object type = value.getClass().getMethod("getType").invoke(value);
+        if ("jsonb".equals(type) || "json".equals(type)) {
+          Object raw = value.getClass().getMethod("getValue").invoke(value);
+          if (raw == null) return null;
+          try {
+            return JSON.readValue((String) raw, Object.class);
+          } catch (Exception parseEx) {
+            return raw;
+          }
+        }
+      } catch (ReflectiveOperationException ex) {
+        // fall through and return the raw value below
+      }
     }
     if (value instanceof LocalDate date) {
       return date.toString();
