@@ -12,20 +12,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     validate-on-migrate: false
-  mail:
-    host: ${SMTP_HOST:smtp.gmail.com}
-    port: ${SMTP_PORT:587}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
   servlet:
     multipart:
       max-file-size: 8MB

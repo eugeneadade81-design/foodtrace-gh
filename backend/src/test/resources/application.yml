@@ -9,11 +9,6 @@ spring:
     password:
   flyway:
     enabled: false
-  mail:
-    host: localhost
-    port: 25
-    username: ""
-    password: ""
 
 foodtrace:
   jwt-secret: test-secret-key-minimum-32-characters-long
