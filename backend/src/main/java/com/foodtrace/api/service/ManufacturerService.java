@@ -165,7 +165,7 @@ public class ManufacturerService {
     String batchId = String.valueOf(body.get("batchId"));
     String reason = String.valueOf(body.getOrDefault("reason", "Manufacturer recall"));
 
-    jdbc.sql("""
+    int updated = jdbc.sql("""
         UPDATE product_batches SET recall_status = 'recalled', recall_reason = :reason, recalled_at = now()
         WHERE id = :batchId
         AND manufacturer_id = (SELECT id FROM manufacturers WHERE user_id = :uid LIMIT 1)
@@ -174,6 +174,9 @@ public class ManufacturerService {
         .param("reason", reason)
         .param("uid", user.id())
         .update();
+    if (updated == 0) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product batch not found");
+    }
 
     Map<String, Object> recall = jdbc.sql("""
         INSERT INTO recall_events (batch_id, issued_by, recall_type, reason, scope_districts)

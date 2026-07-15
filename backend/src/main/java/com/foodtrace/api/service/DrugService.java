@@ -195,12 +195,20 @@ public class DrugService {
   }
 
   public Map<String, Object> createRecall(CurrentUser user, Map<String, Object> body) {
-    requirePharmacy(user);
+    UUID pharmacyId = requirePharmacy(user);
     String batchId = String.valueOf(body.get("batchId"));
     String reason = String.valueOf(body.getOrDefault("reason", "Pharmacy recall"));
 
-    jdbc.sql("UPDATE drug_batches SET recall_status = 'recalled' WHERE id = :id")
-        .param("id", UUID.fromString(batchId)).update();
+    int updated = jdbc.sql("""
+        UPDATE drug_batches SET recall_status = 'recalled'
+        WHERE id = :id AND pharmacy_id = :pharmacyId
+        """)
+        .param("id", UUID.fromString(batchId))
+        .param("pharmacyId", pharmacyId)
+        .update();
+    if (updated == 0) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Drug batch not found");
+    }
     jdbc.sql("UPDATE drug_qr_codes SET status = 'recalled' WHERE drug_batch_id = :id")
         .param("id", UUID.fromString(batchId)).update();
 
