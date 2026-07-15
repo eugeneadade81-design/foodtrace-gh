@@ -50,6 +50,15 @@ public class ApiExceptionHandler {
         "error", "Not found, or you don't have access to it."));
   }
 
+  // An unknown route must be a clean 404, not a 500 "Server error" — otherwise
+  // Spring's NoResourceFoundException falls through to the catch-all below.
+  @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+  ResponseEntity<Map<String, Object>> notFound(Exception ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+        "status", 404,
+        "error", "Not found."));
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<Map<String, Object>> unexpected(Exception ex) {
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
