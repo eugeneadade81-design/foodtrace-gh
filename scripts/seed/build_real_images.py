@@ -19,7 +19,7 @@ from PIL import Image
 # question, so exclude them from candidate titles outright.
 BAD_TITLE_PATTERN = re.compile(
     r"\(IA |\(serial\)|journal|magazine|cookery|cook book|cookbook|"
-    r"ghost sign|shipwreck|colosseum|cathedral|directory for |guide to |"
+    r"ghost sign|shipwreck|colosseum|cathedral|catedral|directory for |guide to |"
     r"gossip|adviser|marriage guide|breeder and sportsman|electric batter|"
     r"nurse \(|clinical medicine|diseases of women|therapeutics|"
     r"natural history of plants|voyage des capitaines|home journal|"
@@ -27,7 +27,16 @@ BAD_TITLE_PATTERN = re.compile(
     r"lady's book|novelties and specialties|"
     r"SPAR kolonial|Hannaford supermarket|ornamental trees|popular gardening|"
     r"tidewater cities|chemist and druggist|coffee company building|"
-    r"canadian grocer|wild nature's ways|systematic-review|systematic review",
+    r"canadian grocer|wild nature's ways|systematic-review|systematic review|"
+    # Buildings / streets / freight trains / novelty merch / hormone tablets
+    # that keyword-match product searches but are not photos of the product.
+    r"headquarters|house of senator|dollands moor|wembley eau minerale|"
+    r"naufragio a malta|transistor radio|headphone radio|novelty|"
+    r"miniature grocery|food distribution center|lakeville rd|"
+    r"\b(ADVERT|advert)\b|showcard advertising|"
+    r"zumenon|progynova|estradiol|kai bo food supermarket|"
+    r"szent istv|esztergom|sz[eé]kesfeh[eé]rv[aá]r|"
+    r"boat tour|platter and drinks|malindi",
     re.I,
 )
 
@@ -53,6 +62,40 @@ NAME_OVERRIDE_TERMS = {
     "CoartiPlus 80/480mg Tablets": ["Coartem", "Coartem blister pack", "Coartem tablets box"],
     "CoartiPlus 20/120mg Tablets": ["Coartem", "Coartem blister pack", "Coartem tablets box"],
     "TropiGold Orange Juice": ["Ribbon orange juice glass bottle", "orange juice bottle close-up"],
+    # Products that previously got buildings / freight trains / wrong-category photos
+    "GoldBrew Malta": ["Malta Guinness bottle", "malt drink bottle", "Supermalt can"],
+    "RefreshPlus Energy Drink": ["Red Bull can", "energy drink can Monster", "Predator energy drink can"],
+    "AquaBliss Table Water": ["Voltic water bottle Ghana", "bottled drinking water", "Aquafina bottle"],
+    "NaturePure Coconut Water": ["coconut water carton Vita Coco", "coconut water bottle", "young coconut drink"],
+    "PureGold Sachet Water": ["sachet water Special Ice", "pure water sachet Ghana", "drinking water sachet"],
+    "AquaVibe Sparkling Water": ["sparkling water bottle Perrier", "sparkling mineral water bottle"],
+    "FreshFlow Waterfall Water": ["bottled spring water", "Evian water bottle", "Dasani bottle"],
+    "AquaLife Pure Water Pack": ["pack of bottled water", "crate of water bottles", "Voltic water pack"],
+    "SunCraft Pineapple Malt": ["pineapple juice drink bottle", "Malta Guinness bottle", "malt beverage can"],
+    "ZenFresh Passion Fruit Drink": ["passion fruit juice bottle", "passionfruit drink carton"],
+    "BrightDrop Strawberry Drink": ["strawberry juice drink bottle", "strawberry smoothie carton"],
+    "PureSip Sorrel Drink": ["sorrel drink Jamaica bottle", "hibiscus sorrel drink"],
+    "ZenBliss Soymilk Drink": ["soy milk carton Alpro", "Vitasoy soy milk", "soymilk carton"],
+    "TropiBurst Tropical Mix": ["tropical juice carton", "mixed fruit juice bottle"],
+    "NatureMalt Oat Drink": ["oat milk carton Oatly", "oat drink carton"],
+    "TomBrown Roasted Cereal": ["roasted cereal porridge mix", "tom brown porridge Ghana", "cereal mix package"],
+    "FreshPress Peanut Oil": ["peanut oil bottle", "groundnut oil bottle kitchen"],
+    "TropiBite Cocoa Puffs": ["cocoa puffs cereal box", "chocolate cereal box"],
+    "QuiniCure 300mg Tablets": ["quinine tablets blister", "quinine sulfate tablets"],
+    "MoxiCure 400mg Tablets": ["moxifloxacin tablets box", "antibiotic tablets blister pack"],
+    "StrepoGold 1g Injection": ["streptomycin injection vial", "antibiotic injection vial"],
+    "PyraCure 500mg Tablets": ["pyrazinamide tablets blister", "TB medicine tablets box"],
+    "MefloGold 250mg Tablets": ["mefloquine tablets blister", "Lariam tablets"],
+    "CoolBreeze Pineapple Drink": ["pineapple juice bottle", "pineapple juice carton Del Monte"],
+    "SunFresh Mango Nectar": ["mango nectar bottle", "mango juice carton", "mango puree drink bottle", "Alphonso mango juice"],
+    "FruitBurst Mixed Juice": ["mixed fruit juice carton", "multivitamin juice bottle"],
+    "TropiFresh Guava Drink": ["guava juice bottle", "guava nectar carton"],
+    "TrueGold Apple Juice": ["apple juice bottle", "apple juice carton"],
+    "FreshPick Watermelon Juice": ["watermelon juice bottle", "watermelon drink carton"],
+    "NatureSip Tamarind Drink": ["tamarind drink bottle", "tamarind juice carton"],
+    "TropiBreeze Mango Drink": ["mango juice bottle", "mango drink carton"],
+    "BubbleFizz Lemon Drink": ["lemon soda bottle", "Sprite lemon bottle", "lemon soft drink"],
+    "ZestPop Cola Drink": ["Coca-Cola bottle", "cola soft drink bottle"],
 }
 
 HEADERS = {"User-Agent": "FoodTraceGH-DemoSeeder/1.0 (contact: eugeneadade81@gmail.com)"}
