@@ -31,6 +31,7 @@ The medicine/pharmacy module is available behind `VITE_ENABLE_DRUG_MODULE=true`.
 
 **Architecture & business docs (CODEQUEST):**
 
+- [docs/APP_GUIDE.md](docs/APP_GUIDE.md) — **how the whole app works** (start here)
 - [docs/MICROSERVICES.md](docs/MICROSERVICES.md) — how the two Spring services split work
 - [docs/BUSINESS_MODEL.md](docs/BUSINESS_MODEL.md) — manufacturer SaaS + regulator licensing
 - [docs/architecture.md](docs/architecture.md) — regulator / analytics deep dive
