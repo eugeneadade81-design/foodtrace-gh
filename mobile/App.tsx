@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+﻿import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   BackHandler,
   Image,
@@ -60,7 +60,7 @@ import {
 } from "./src/screens";
 import type { AppNotification } from "./src/screens";
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function resolveDefaultApiBase() {
   const constants = Constants as typeof Constants & {
@@ -119,7 +119,7 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   return data;
 }
 
-// ─── constants ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -132,6 +132,12 @@ Notifications.setNotificationHandler({
 });
 
 const defaultApiBase = resolveDefaultApiBase();
+
+function normalizeApiBase(value: string) {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) return defaultApiBase;
+  return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
+}
 // Scan history is stored per-user so one account never sees another's scans
 // on a shared device.
 const historyKeyFor = (userId?: string | null) =>
@@ -147,7 +153,7 @@ const roleLabels: Record<string, string> = {
   pharmacist: "Pharmacist",
 };
 
-// ─── types ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SECURITY_QUESTIONS = [
   "What was the name of your first school?",
@@ -181,7 +187,7 @@ function epaBannerColor(status: string) {
   return { backgroundColor: "#151A15", borderColor: "#26302A" };
 }
 
-// ─── component ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function App() {
   // SafeAreaProvider supplies real device insets (status bar, notch, gesture
@@ -222,6 +228,7 @@ function AppContent() {
 
   // api
   const [apiBase, setApiBase] = useState(defaultApiBase);
+  const [apiBaseDraft, setApiBaseDraft] = useState(defaultApiBase);
 
   // consumer
   const [consumerTab, setConsumerTab] = useState<ConsumerTab>("home");
@@ -333,13 +340,13 @@ function AppContent() {
   const isRegulator = currentRole === "regulator";
   const isPharmacist = currentRole === "pharmacist";
 
-  // ── effects ────────────────────────────────────────────────────────────────
+  // â”€â”€ effects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     void (async () => {
       try {
         const saved = await AsyncStorage.getItem(apiBaseKey);
-        if (saved?.trim()) setApiBase(saved.trim());
+        if (saved?.trim()) { const normalized = normalizeApiBase(saved); setApiBase(normalized); setApiBaseDraft(normalized); }
       } catch { /* ignore */ }
     })();
   }, []);
@@ -377,7 +384,7 @@ function AppContent() {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
           body: JSON.stringify({ token: pushToken }),
         });
-      } catch { /* push registration is best-effort — app works fine without it */ }
+      } catch { /* push registration is best-effort â€” app works fine without it */ }
     })();
   }, [session?.token, apiBase]);
 
@@ -424,19 +431,19 @@ function AppContent() {
 
   useEffect(() => {
     const detected = resolveDefaultApiBase();
-    setApiBase((cur) => (!cur || cur === "http://localhost:3000/api" || cur === "http://10.0.2.2:3000/api") ? detected : cur);
+    setApiBase((cur) => { const next = (!cur || cur === "http://localhost:3000/api" || cur === "http://10.0.2.2:3000/api") ? detected : cur; setApiBaseDraft(next); return next; });
   }, []);
 
   useEffect(() => {
     return () => { if (cameraResumeTimerRef.current) clearTimeout(cameraResumeTimerRef.current); };
   }, []);
 
-  // ── helpers ────────────────────────────────────────────────────────────────
+  // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   function getFriendlyError(error: unknown) {
-    // A failed fetch (no response at all) throws TypeError — almost always a
+    // A failed fetch (no response at all) throws TypeError â€” almost always a
     // connectivity problem on the device side.
-    if (error instanceof TypeError) return "Could not reach the server. Check your connection.";
+    if (error instanceof TypeError) return `Could not reach the server at ${apiBase}. Check the backend URL or your connection.`;
     const status = (error as { status?: number })?.status;
     // Gateway/unavailable codes are what Render returns while the free instance
     // is spinning back up from sleep.
@@ -455,7 +462,7 @@ function AppContent() {
     return /error|fail|could not|server|wrong|denied|unauthori/i.test(msg);
   }
 
-  // Retries once after a short delay — handles Render cold start
+  // Retries once after a short delay â€” handles Render cold start
   async function fetchWithRetry(url: string, options?: RequestInit, retries = 1): Promise<Response> {
     try {
       const res = await fetch(url, options);
@@ -470,6 +477,28 @@ function AppContent() {
         return fetchWithRetry(url, options, retries - 1);
       }
       throw err;
+    }
+  }
+  async function saveApiBase() {
+    const normalized = normalizeApiBase(apiBaseDraft);
+    setApiBase(normalized);
+    setApiBaseDraft(normalized);
+    try { await AsyncStorage.setItem(apiBaseKey, normalized); } catch { /* best effort */ }
+    setAuthStatus(`Server set to ${normalized}`);
+  }
+
+  async function testApiBase() {
+    const normalized = normalizeApiBase(apiBaseDraft);
+    setApiBase(normalized);
+    setApiBaseDraft(normalized);
+    setAuthStatus("Testing server...");
+    try {
+      const response = await fetchWithRetry(`${normalized}/auth/roles`, undefined, 0);
+      await readJsonResponse(response);
+      try { await AsyncStorage.setItem(apiBaseKey, normalized); } catch { /* best effort */ }
+      setAuthStatus(`Server is reachable: ${normalized}`);
+    } catch (error) {
+      setAuthStatus(getFriendlyError(error));
     }
   }
 
@@ -521,7 +550,7 @@ function AppContent() {
     }
   }
 
-  // ── auth ──────────────────────────────────────────────────────────────────
+  // â”€â”€ auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async function submit() {
     if (mode === "register") {
@@ -535,14 +564,14 @@ function AppContent() {
       if (!identifier.trim()) { setAuthStatus("Please enter your phone or email."); return; }
       if (!password.trim()) { setAuthStatus("Please enter your password."); return; }
     }
-    setAuthStatus("Please wait…");
+    setAuthStatus("Please waitâ€¦");
     try {
       const endpoint = mode === "login" ? "/auth/login" : "/auth/register";
       const payload = mode === "login"
         ? { identifier, password }
         : { fullName, phone: phone.trim() || null, email: email.trim() || null, password, role, language: "en",
             securityQuestion, securityAnswer: securityAnswer.trim() || null };
-      const response = await fetch(`${apiBase}${endpoint}`, {
+      const response = await fetchWithRetry(`${apiBase}${endpoint}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
       const data = await readJsonResponse<AuthResponse>(response);
@@ -561,7 +590,7 @@ function AppContent() {
 
   async function lookupSecurityQuestion() {
     if (!forgotEmail.trim()) { setAuthStatus("Enter your email or phone number."); return; }
-    setAuthStatus("Please wait…");
+    setAuthStatus("Please waitâ€¦");
     try {
       const data = await readJsonResponse<{ question?: string }>(await fetch(`${apiBase}/auth/security-question/lookup`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier: forgotEmail.trim() }),
@@ -576,7 +605,7 @@ function AppContent() {
   async function submitPasswordReset() {
     if (!securityAnswerReset.trim()) { setAuthStatus("Enter your security answer."); return; }
     if (newPassword.trim().length < 6) { setAuthStatus("New password must be at least 6 characters."); return; }
-    setAuthStatus("Please wait…");
+    setAuthStatus("Please waitâ€¦");
     try {
       const data = await readJsonResponse<{ message?: string }>(await fetch(`${apiBase}/auth/reset-with-security`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -613,7 +642,7 @@ function AppContent() {
     setShowNotifications(false);
   }
 
-  // ── scan ──────────────────────────────────────────────────────────────────
+  // â”€â”€ scan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleScanResult = useCallback(
     (result: ProductScanResult | DrugScanResult, kind: "food" | "drug") => {
@@ -678,7 +707,7 @@ function AppContent() {
   async function scanDrugProduct(code = drugScanCode) {
     const normalized = code.trim().toUpperCase();
     if (!normalized) { setDrugScanStatus("Enter a drug QR code first."); return; }
-    setDrugScanStatus("Looking up drug…");
+    setDrugScanStatus("Looking up drugâ€¦");
     try {
       const response = await fetch(`${apiBase}/drug/scan/${encodeURIComponent(normalized)}`, {
         headers: session?.token ? { Authorization: `Bearer ${session.token}` } : undefined,
@@ -700,7 +729,7 @@ function AppContent() {
     scheduleCameraResume();
   }
 
-  // ── speech ────────────────────────────────────────────────────────────────
+  // â”€â”€ speech â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async function playGoogleSpeech(text: string) {
     const response = await fetch(`${apiBase}/audio/speech`, {
@@ -714,11 +743,11 @@ function AppContent() {
     sound.setOnPlaybackStatusUpdate((s) => { if ("didJustFinish" in s && s.didJustFinish) void sound.unloadAsync(); });
   }
 
-  // ── food / farmer ─────────────────────────────────────────────────────────
+  // â”€â”€ food / farmer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async function loadFoodDashboard() {
     if (!session?.token) return;
-    setFoodStatus("Loading…");
+    setFoodStatus("Loadingâ€¦");
     try {
       const response = await fetchWithRetry(`${apiBase}/food/dashboard`, { headers: { Authorization: `Bearer ${session.token}` } });
       const data = await readJsonResponse<{ dashboard: FoodDashboardResponse }>(response);
@@ -737,7 +766,7 @@ function AppContent() {
       const response = await fetchWithRetry(`${apiBase}/food/weather${qs}`, { headers: { Authorization: `Bearer ${session.token}` } });
       const data = await readJsonResponse<WeatherResponse>(response);
       setWeather(data);
-    } catch { /* weather is a nice-to-have — dashboard still works without it */ }
+    } catch { /* weather is a nice-to-have â€” dashboard still works without it */ }
   }
 
   async function searchPesticides(query: string) {
@@ -761,7 +790,7 @@ function AppContent() {
 
   async function createFarm() {
     if (!session?.token) return;
-    setFoodStatus("Creating farm…");
+    setFoodStatus("Creating farmâ€¦");
     try {
       const payload: CreateFarmRequest = { name: farmName, district: farmDistrict, region: farmRegion, cropTypes: farmCrops.split(",").map((s) => s.trim()).filter(Boolean) };
       await readJsonResponse(await fetch(`${apiBase}/food/farms`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -771,7 +800,7 @@ function AppContent() {
 
   async function createCropCycle() {
     if (!session?.token) return;
-    setFoodStatus("Creating cycle…");
+    setFoodStatus("Creating cycleâ€¦");
     try {
       const payload: CreateCropCycleRequest = { farmId: cycleFarmId, cropType: cycleCropType, plantingDate: cyclePlantingDate };
       await readJsonResponse(await fetch(`${apiBase}/food/crop-cycles`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -781,7 +810,7 @@ function AppContent() {
 
   async function createInputLog() {
     if (!session?.token) return;
-    setFoodStatus("Saving input log…");
+    setFoodStatus("Saving input logâ€¦");
     try {
       const payload: CreateInputLogRequest = { cropCycleId: inputCycleId, inputType, productName: inputProductName, applicationDate: inputApplicationDate, withdrawalPeriodDays: Number(inputWithdrawalDays), epaApprovalStatus: inputEpaStatus as CreateInputLogRequest["epaApprovalStatus"] };
       await readJsonResponse(await fetch(`${apiBase}/food/input-logs`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -807,11 +836,11 @@ function AppContent() {
     } catch (error) { setFoodStatus(getFriendlyError(error)); }
   }
 
-  // ── manufacturer ──────────────────────────────────────────────────────────
+  // â”€â”€ manufacturer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async function loadManufacturerDashboard() {
     if (!session?.token) return;
-    setManufacturerStatus("Loading…");
+    setManufacturerStatus("Loadingâ€¦");
     try {
       const data = await readJsonResponse<{ dashboard: ManufacturerDashboardResponse }>(await fetchWithRetry(`${apiBase}/manufacturer/dashboard`, { headers: { Authorization: `Bearer ${session.token}` } }));
       setManufacturerDashboard(data.dashboard);
@@ -822,7 +851,7 @@ function AppContent() {
 
   async function createManufacturerProfile() {
     if (!session?.token) return;
-    setManufacturerStatus("Creating profile…");
+    setManufacturerStatus("Creating profileâ€¦");
     try {
       const payload: CreateManufacturerProfileRequest = { companyName, fdaRegistrationNumber: fdaRegNumber || null, sector: manufacturerSector, subscriptionTier };
       await readJsonResponse(await fetch(`${apiBase}/manufacturer/profile`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -839,7 +868,7 @@ function AppContent() {
 
   async function createManufacturerBatch() {
     if (!session?.token) return;
-    setManufacturerStatus("Creating batch…");
+    setManufacturerStatus("Creating batchâ€¦");
     try {
       const payload: CreateProductBatchRequest = { batchNumber, ingredientSources: [ingredientSources], processingSteps: processingSteps.split(",").map((s) => s.trim()).filter(Boolean), qualityChecks: [qualityChecks], packagingDate, expiryDate, imageUrl: batchImage };
       const data = await readJsonResponse<CreateProductBatchResponse>(await fetch(`${apiBase}/manufacturer/batches`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -851,7 +880,7 @@ function AppContent() {
 
   async function createManufacturerRecall() {
     if (!session?.token) return;
-    setManufacturerStatus("Issuing recall…");
+    setManufacturerStatus("Issuing recallâ€¦");
     try {
       const payload: CreateRecallRequest = { batchId: recallBatchId, recallType, reason: recallReason, scopeDistricts: recallScopeDistricts.split(",").map((s) => s.trim()).filter(Boolean) };
       await readJsonResponse(await fetch(`${apiBase}/manufacturer/recalls`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -859,11 +888,11 @@ function AppContent() {
     } catch (error) { setManufacturerStatus(getFriendlyError(error)); }
   }
 
-  // ── regulator ─────────────────────────────────────────────────────────────
+  // â”€â”€ regulator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async function loadRegulatorDashboard() {
     if (!session?.token) return;
-    setRegulatorStatus("Loading…");
+    setRegulatorStatus("Loadingâ€¦");
     try {
       const data = await readJsonResponse<{ dashboard: RegulatorDashboardResponse }>(await fetchWithRetry(`${apiBase}/regulator/dashboard`, { headers: { Authorization: `Bearer ${session.token}` } }));
       setRegulatorDashboard(data.dashboard);
@@ -877,7 +906,7 @@ function AppContent() {
     if (!session?.token) return;
     if (!reportId.trim()) { setRegulatorStatus("There is no report to review yet."); return; }
     if (!["reviewing", "resolved", "dismissed"].includes(reportStatus)) { setRegulatorStatus("Status must be reviewing, resolved, or dismissed."); return; }
-    setRegulatorStatus("Updating report…");
+    setRegulatorStatus("Updating reportâ€¦");
     try {
       await readJsonResponse(await fetch(`${apiBase}/regulator/reports`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ reportId: reportId.trim(), status: reportStatus }) }));
       setRegulatorStatus("Report updated.");
@@ -887,7 +916,7 @@ function AppContent() {
 
   async function createRegulatorRecall() {
     if (!session?.token) return;
-    setRegulatorStatus("Issuing recall…");
+    setRegulatorStatus("Issuing recallâ€¦");
     try {
       const payload: RegulatorRecallRequest = { batchId: regulatorRecallBatchId, reason: regulatorRecallReason, scopeDistricts: regulatorRecallDistricts.split(",").map((s) => s.trim()).filter(Boolean), domain: regulatorRecallDomain };
       await readJsonResponse(await fetch(`${apiBase}/regulator/recalls`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -895,11 +924,11 @@ function AppContent() {
     } catch (error) { setRegulatorStatus(getFriendlyError(error)); }
   }
 
-  // ── pharmacist ────────────────────────────────────────────────────────────
+  // â”€â”€ pharmacist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async function loadPharmacyDashboard() {
     if (!session?.token) return;
-    setPharmacyStatus("Loading…");
+    setPharmacyStatus("Loadingâ€¦");
     try {
       const data = await readJsonResponse<{ dashboard: DrugDashboardResponse }>(await fetchWithRetry(`${apiBase}/drug/dashboard`, { headers: { Authorization: `Bearer ${session.token}` } }));
       setPharmacyDashboard(data.dashboard);
@@ -909,7 +938,7 @@ function AppContent() {
 
   async function registerPharmacy() {
     if (!session?.token) return;
-    setPharmacyStatus("Registering…");
+    setPharmacyStatus("Registeringâ€¦");
     try {
       const payload: RegisterPharmacyRequest = { businessName, ghanaPharmacyCouncilNumber: gpcNumber, district: pharmacyDistrict, region: pharmacyRegion };
       await readJsonResponse(await fetch(`${apiBase}/drug/register`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -919,7 +948,7 @@ function AppContent() {
 
   async function createDrugRecord() {
     if (!session?.token) return;
-    setPharmacyStatus("Creating drug record…");
+    setPharmacyStatus("Creating drug recordâ€¦");
     try {
       const payload: CreateDrugRecordRequest = { name: drugName, genericName: drugGenericName || null, manufacturerName: drugManufacturer || null, fdaDrugRegistrationNumber: drugFdaNumber || null, drugClass: drugClass || null, dosageForm: drugDosageForm || null, strength: drugStrength || null, requiresPrescription: drugRequiresPrescription, isControlled: drugIsControlled, fdaApprovalStatus: drugApprovalStatus, storageConditions: drugStorage || null, sideEffectsSummary: drugSideEffects || null };
       await readJsonResponse(await fetch(`${apiBase}/drug/drugs`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -938,7 +967,7 @@ function AppContent() {
     if (!session?.token) return;
     const firstDrugId = pharmacyDashboard?.drugs[0]?.id ?? "";
     if (!firstDrugId) { setPharmacyStatus("Create a drug record first."); return; }
-    setPharmacyStatus("Creating batch…");
+    setPharmacyStatus("Creating batchâ€¦");
     try {
       const payload: CreateDrugBatchRequest = { drugId: firstDrugId, batchNumber: drugBatchNumber, manufactureDate: drugManufactureDate, expiryDate: drugExpiryDate, quantityReceived: Number(drugQuantityReceived), quantityRemaining: Number(drugQuantityRemaining), supplierName: drugSupplierName || null, imageUrl: drugBatchImage };
       const data = await readJsonResponse<CreateDrugBatchResponse>(await fetch(`${apiBase}/drug/batches`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -950,7 +979,7 @@ function AppContent() {
 
   async function createDrugRecall() {
     if (!session?.token) return;
-    setPharmacyStatus("Creating recall…");
+    setPharmacyStatus("Creating recallâ€¦");
     try {
       const payload: CreateDrugRecallRequest = { batchId: drugRecallBatchId, reason: drugRecallReason };
       await readJsonResponse(await fetch(`${apiBase}/drug/recalls`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` }, body: JSON.stringify(payload) }));
@@ -958,7 +987,7 @@ function AppContent() {
     } catch (error) { setPharmacyStatus(getFriendlyError(error)); }
   }
 
-  // ── AI assistant ──────────────────────────────────────────────────────────
+  // â”€â”€ AI assistant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async function sendAiMessage() {
     const text = aiInput.trim();
@@ -982,17 +1011,17 @@ function AppContent() {
     } finally { setAiLoading(false); }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // RENDER: ANIMATED INTRO (plays on every launch)
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   if (showIntro) {
     return <SplashIntro onFinish={() => setShowIntro(false)} />;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // RENDER: AUTH SCREEN
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   if (!session) {
     return (
@@ -1038,7 +1067,7 @@ function AppContent() {
                 <Pressable style={s.input} onPress={() => { const i = SECURITY_QUESTIONS.indexOf(securityQuestion); setSecurityQuestion(SECURITY_QUESTIONS[(i + 1) % SECURITY_QUESTIONS.length]); }}>
                   <Text style={{ color: "#f4f4ef" }}>{securityQuestion}</Text>
                 </Pressable>
-                <Text style={s.hint}>Tap the question to change it — you'll answer it to recover your account.</Text>
+                <Text style={s.hint}>Tap the question to change it â€” you'll answer it to recover your account.</Text>
                 <TextInput placeholder="Security answer" placeholderTextColor="#748089" style={s.input} value={securityAnswer} onChangeText={setSecurityAnswer} autoCapitalize="none" />
                 <Text style={s.hint}>Each account needs a unique phone number or email. To test a different role, use a different number.</Text>
                 <Pressable style={s.primaryBtn} onPress={() => void submit()}>
@@ -1079,22 +1108,43 @@ function AppContent() {
               </>
             )}
 
-            {authStatus === "Please wait…" ? (
-              <Text style={s.statusLoading}>Please wait…</Text>
+            {authStatus === "Please waitâ€¦" ? (
+              <Text style={s.statusLoading}>Please waitâ€¦</Text>
             ) : authStatus ? (
-              <View style={s.errorBox}>
-                <Text style={s.errorText}>{authStatus}</Text>
+              <View style={isErrorMsg(authStatus) ? s.errorBox : s.infoBox}>
+                <Text style={isErrorMsg(authStatus) ? s.errorText : s.infoText}>{authStatus}</Text>
               </View>
             ) : null}
+
+            <View style={s.serverBox}>
+              <Text style={s.serverLabel}>API server</Text>
+              <TextInput
+                placeholder="https://your-backend.example.com/api"
+                placeholderTextColor="#748089"
+                style={s.serverInput}
+                value={apiBaseDraft}
+                onChangeText={setApiBaseDraft}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+              <View style={s.serverActions}>
+                <Pressable style={s.serverBtn} onPress={() => void testApiBase()}>
+                  <Text style={s.serverBtnText}>Test</Text>
+                </Pressable>
+                <Pressable style={s.serverBtn} onPress={() => void saveApiBase()}>
+                  <Text style={s.serverBtnText}>Save</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER: LOGGED-IN — CONSUMER (bottom nav layout)
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // RENDER: LOGGED-IN â€” CONSUMER (bottom nav layout)
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   if (isConsumer) {
     return (
@@ -1107,7 +1157,7 @@ function AppContent() {
           <View style={s.topBarRight}>
             <Text style={s.topBarUser} numberOfLines={1}>{session.user.fullName || "Account"}</Text>
             <Pressable onPress={() => void openNotifications()} hitSlop={8} style={s.bellBtn}>
-              <Text style={s.bellIcon}>🔔</Text>
+              <Text style={s.bellIcon}>ðŸ””</Text>
               {unread > 0 ? <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
             </Pressable>
           </View>
@@ -1192,11 +1242,11 @@ function AppContent() {
                       </View>
                     ))
                   )}
-                  {aiLoading ? <Text style={s.statusLoading}>Thinking…</Text> : null}
+                  {aiLoading ? <Text style={s.statusLoading}>Thinkingâ€¦</Text> : null}
                 </View>
 
                 <View style={s.chatInputRow}>
-                  <TextInput style={s.chatInput} placeholder="Ask a question…" placeholderTextColor="#748089" value={aiInput} onChangeText={setAiInput} multiline />
+                  <TextInput style={s.chatInput} placeholder="Ask a questionâ€¦" placeholderTextColor="#748089" value={aiInput} onChangeText={setAiInput} multiline />
                   <Pressable style={[s.sendBtn, (!aiInput.trim() || aiLoading) && s.sendBtnOff]} onPress={() => void sendAiMessage()} disabled={!aiInput.trim() || aiLoading}>
                     <Text style={s.sendBtnText}>Send</Text>
                   </Pressable>
@@ -1215,7 +1265,7 @@ function AppContent() {
                 <View style={[s.scanCorner, s.scanCornerBL]} />
                 <View style={[s.scanCorner, s.scanCornerBR]} />
                 <View style={s.scanIconRing}>
-                  <Text style={s.scanIconText}>⊡</Text>
+                  <Text style={s.scanIconText}>âŠ¡</Text>
                 </View>
                 <Text style={s.scanHeroTitle}>Tap to scan a product</Text>
                 <Text style={s.scanHeroSub}>Know before you buy</Text>
@@ -1224,7 +1274,7 @@ function AppContent() {
               <View style={s.bentoRow}>
                 <View style={[s.bentoBig, { overflow: "hidden" }]}>
                   <LinearGradient colors={["#1a3d2c", "#12241a"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                  <Text style={s.bentoBigNumber}>{consumerHistory.length === 0 ? "—" : `${Math.round((consumerHistory.filter((h) => h.status !== "recalled").length / consumerHistory.length) * 100)}%`}</Text>
+                  <Text style={s.bentoBigNumber}>{consumerHistory.length === 0 ? "â€”" : `${Math.round((consumerHistory.filter((h) => h.status !== "recalled").length / consumerHistory.length) * 100)}%`}</Text>
                   <Text style={s.bentoBigLabel}>Safe scans so far</Text>
                 </View>
                 <View style={s.bentoStack}>
@@ -1255,7 +1305,7 @@ function AppContent() {
                   {consumerHistory.slice(0, 8).map((item, i) => (
                     <Pressable key={i} style={s.recentTile} onPress={() => setConsumerTab("history")}>
                       <View style={[s.recentTileIconWrap, item.status === "recalled" ? s.recentTileIconWrapBad : s.recentTileIconWrapGood]}>
-                        <Text style={s.recentTileIcon}>{item.status === "recalled" ? "✕" : item.status === "caution" ? "!" : "✓"}</Text>
+                        <Text style={s.recentTileIcon}>{item.status === "recalled" ? "âœ•" : item.status === "caution" ? "!" : "âœ“"}</Text>
                       </View>
                       <Text style={s.recentTileTitle} numberOfLines={1}>{item.title}</Text>
                       <Text style={item.status === "recalled" ? s.recentTileStatusBad : s.recentTileStatusGood}>
@@ -1272,11 +1322,11 @@ function AppContent() {
         {/* Bottom nav */}
         <View style={s.bottomNav}>
           {([
-            { tab: "home" as ConsumerTab, icon: "⌂", label: "Home" },
-            { tab: "market" as ConsumerTab, icon: "▤", label: "Market" },
-            { tab: "scanner" as ConsumerTab, icon: "⊡", label: "Scan" },
-            { tab: "history" as ConsumerTab, icon: "◷", label: "History" },
-            { tab: "account" as ConsumerTab, icon: "○", label: "Account" },
+            { tab: "home" as ConsumerTab, icon: "âŒ‚", label: "Home" },
+            { tab: "market" as ConsumerTab, icon: "â–¤", label: "Market" },
+            { tab: "scanner" as ConsumerTab, icon: "âŠ¡", label: "Scan" },
+            { tab: "history" as ConsumerTab, icon: "â—·", label: "History" },
+            { tab: "account" as ConsumerTab, icon: "â—‹", label: "Account" },
           ] as const).map(({ tab, icon, label }) => {
             const isActive = tab === "home"
               ? (consumerTab === "home" || consumerTab === "result" || consumerTab === "report")
@@ -1295,9 +1345,9 @@ function AppContent() {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER: LOGGED-IN — OTHER ROLES (farmer / manufacturer / regulator / pharmacist)
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // RENDER: LOGGED-IN â€” OTHER ROLES (farmer / manufacturer / regulator / pharmacist)
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const portalTitle = roleLabels[currentRole ?? ""] ?? "Portal";
   const portalGradient: [string, string] = isFarmer
@@ -1317,7 +1367,7 @@ function AppContent() {
         <Text style={s.topBarLogo}>FOODTRACE GH</Text>
         <View style={s.topBarRight}>
           <Pressable onPress={() => void openNotifications()} hitSlop={8} style={s.bellBtn}>
-            <Text style={s.bellIcon}>🔔</Text>
+            <Text style={s.bellIcon}>ðŸ””</Text>
             {unread > 0 ? <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
           </Pressable>
           <Pressable onPress={signOut} style={s.signOutBtn}>
@@ -1374,7 +1424,7 @@ function AppContent() {
         {isFarmer ? (
           <>
             <View style={s.card}>
-              <Text style={[s.cardKicker, { color: "#77c7a2" }]}>FARMER · DASHBOARD</Text>
+              <Text style={[s.cardKicker, { color: "#77c7a2" }]}>FARMER Â· DASHBOARD</Text>
               <Pressable style={s.primaryBtn} onPress={() => void loadFoodDashboard()}>
                 <Text style={s.primaryBtnText}>Load Dashboard</Text>
               </Pressable>
@@ -1400,10 +1450,10 @@ function AppContent() {
             {weather ? (
               <View style={[s.card, { overflow: "hidden" }]}>
                 <LinearGradient colors={["#173a2c", "#151A15"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                <Text style={[s.cardKicker, { color: "#77c7a2" }]}>{weather.region.toUpperCase()} · WEATHER</Text>
+                <Text style={[s.cardKicker, { color: "#77c7a2" }]}>{weather.region.toUpperCase()} Â· WEATHER</Text>
                 <View style={s.weatherNow}>
                   <View>
-                    <Text style={s.weatherTemp}>{Math.round(weather.current.temperatureC)}°C</Text>
+                    <Text style={s.weatherTemp}>{Math.round(weather.current.temperatureC)}Â°C</Text>
                     <Text style={s.weatherCondition}>{weather.current.condition}</Text>
                   </View>
                   <View style={s.weatherStatsCol}>
@@ -1418,7 +1468,7 @@ function AppContent() {
                       <Text style={s.weatherDayLabel}>
                         {i === 0 ? "Today" : new Date(day).toLocaleDateString("en-GB", { weekday: "short" })}
                       </Text>
-                      <Text style={s.weatherDayTemp}>{Math.round(weather.forecast.temperature_2m_max[i])}°/{Math.round(weather.forecast.temperature_2m_min[i])}°</Text>
+                      <Text style={s.weatherDayTemp}>{Math.round(weather.forecast.temperature_2m_max[i])}Â°/{Math.round(weather.forecast.temperature_2m_min[i])}Â°</Text>
                       <Text style={s.weatherDayRain}>{weather.forecast.precipitation_probability_max[i]}% rain</Text>
                     </View>
                   ))}
@@ -1449,7 +1499,7 @@ function AppContent() {
                     {segments.map(([label, count, color]) => (
                       <View key={label} style={s.pipelineLegendItem}>
                         <View style={[s.pipelineDot, { backgroundColor: color }]} />
-                        <Text style={s.pipelineLegendText}>{label} · {count}</Text>
+                        <Text style={s.pipelineLegendText}>{label} Â· {count}</Text>
                       </View>
                     ))}
                   </View>
@@ -1489,9 +1539,9 @@ function AppContent() {
               {matchedPesticide ? (
                 <View style={[s.pesticideBanner, epaBannerColor(matchedPesticide.epaStatus)]}>
                   <Text style={s.pesticideBannerText}>
-                    {matchedPesticide.epaStatus === "banned" ? `⚠ Banned by EPA Ghana${matchedPesticide.banReason ? `: ${matchedPesticide.banReason}` : ""}`
-                      : matchedPesticide.epaStatus === "restricted" ? "⚠ Restricted-use pesticide — trained applicators only"
-                      : matchedPesticide.epaStatus === "approved" ? "✓ EPA Ghana registered pesticide"
+                    {matchedPesticide.epaStatus === "banned" ? `âš  Banned by EPA Ghana${matchedPesticide.banReason ? `: ${matchedPesticide.banReason}` : ""}`
+                      : matchedPesticide.epaStatus === "restricted" ? "âš  Restricted-use pesticide â€” trained applicators only"
+                      : matchedPesticide.epaStatus === "approved" ? "âœ“ EPA Ghana registered pesticide"
                       : "EPA status not yet verified"}
                   </Text>
                 </View>
@@ -1518,13 +1568,13 @@ function AppContent() {
           <>
             <View style={[s.card, { overflow: "hidden" }]}>
               <LinearGradient colors={["#3d2e10", "#151A15"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-              <Text style={[s.cardKicker, { color: "#E0A83B" }]}>MANUFACTURER · DASHBOARD</Text>
+              <Text style={[s.cardKicker, { color: "#E0A83B" }]}>MANUFACTURER Â· DASHBOARD</Text>
               <Pressable style={s.primaryBtn} onPress={() => void loadManufacturerDashboard()}><Text style={s.primaryBtnText}>Load Dashboard</Text></Pressable>
               {manufacturerStatus ? <Text style={[s.statusMsg, isErrorMsg(manufacturerStatus) ? s.statusErr : s.statusOk]}>{manufacturerStatus}</Text> : null}
               {manufacturerDashboard ? (
                 <View style={s.metricGrid}>
                   {[
-                    ["Profile", manufacturerDashboard.profile?.companyName ?? "—"],
+                    ["Profile", manufacturerDashboard.profile?.companyName ?? "â€”"],
                     ["Batches", manufacturerDashboard.metrics.batches],
                     ["QR codes", manufacturerDashboard.metrics.qrCodes],
                     ["Active recalls", manufacturerDashboard.metrics.activeRecalls],
@@ -1561,7 +1611,7 @@ function AppContent() {
                     {segments.map(([label, count, color]) => (
                       <View key={label} style={s.pipelineLegendItem}>
                         <View style={[s.pipelineDot, { backgroundColor: color }]} />
-                        <Text style={s.pipelineLegendText}>{label} · {count}</Text>
+                        <Text style={s.pipelineLegendText}>{label} Â· {count}</Text>
                       </View>
                     ))}
                   </View>
@@ -1603,7 +1653,7 @@ function AppContent() {
           <>
             <View style={[s.card, { overflow: "hidden" }]}>
               <LinearGradient colors={["#3d1c1c", "#151A15"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-              <Text style={[s.cardKicker, { color: "#E27D7D" }]}>REGULATOR · DASHBOARD</Text>
+              <Text style={[s.cardKicker, { color: "#E27D7D" }]}>REGULATOR Â· DASHBOARD</Text>
               <Pressable style={s.primaryBtn} onPress={() => void loadRegulatorDashboard()}><Text style={s.primaryBtnText}>Load Dashboard</Text></Pressable>
               {regulatorStatus ? <Text style={[s.statusMsg, isErrorMsg(regulatorStatus) ? s.statusErr : s.statusOk]}>{regulatorStatus}</Text> : null}
               {regulatorDashboard ? (
@@ -1650,7 +1700,7 @@ function AppContent() {
                         {segments.map(([label, count, color]) => (
                           <View key={label} style={s.pipelineLegendItem}>
                             <View style={[s.pipelineDot, { backgroundColor: color }]} />
-                            <Text style={s.pipelineLegendText}>{label} · {count}</Text>
+                            <Text style={s.pipelineLegendText}>{label} Â· {count}</Text>
                           </View>
                         ))}
                       </View>
@@ -1694,13 +1744,13 @@ function AppContent() {
           <>
             <View style={[s.card, { overflow: "hidden" }]}>
               <LinearGradient colors={["#12303d", "#151A15"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-              <Text style={[s.cardKicker, { color: "#5CA8E0" }]}>PHARMACY · DASHBOARD</Text>
+              <Text style={[s.cardKicker, { color: "#5CA8E0" }]}>PHARMACY Â· DASHBOARD</Text>
               <Pressable style={s.primaryBtn} onPress={() => void loadPharmacyDashboard()}><Text style={s.primaryBtnText}>Load Dashboard</Text></Pressable>
               {pharmacyStatus ? <Text style={[s.statusMsg, isErrorMsg(pharmacyStatus) ? s.statusErr : s.statusOk]}>{pharmacyStatus}</Text> : null}
               {pharmacyDashboard ? (
                 <View style={s.metricGrid}>
                   {[
-                    ["Pharmacy", pharmacyDashboard.pharmacy?.businessName ?? "—"],
+                    ["Pharmacy", pharmacyDashboard.pharmacy?.businessName ?? "â€”"],
                     ["Drugs", pharmacyDashboard.metrics.drugs],
                     ["Batches", pharmacyDashboard.metrics.batches],
                     ["QR codes", pharmacyDashboard.metrics.qrCodes],
@@ -1725,7 +1775,7 @@ function AppContent() {
               return (
                 <View style={[s.card, { overflow: "hidden" }]}>
                   <LinearGradient colors={["#12303d", "#151A15"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                  <Text style={[s.cardKicker, { color: "#5CA8E0" }]}>INVENTORY · EXPIRY WATCH</Text>
+                  <Text style={[s.cardKicker, { color: "#5CA8E0" }]}>INVENTORY Â· EXPIRY WATCH</Text>
                   {rows.map((b) => {
                     const urgent = b.daysLeft <= 7;
                     const soon = b.daysLeft <= 30;
@@ -1816,7 +1866,7 @@ function AppContent() {
   );
 }
 
-// ── sub-components ─────────────────────────────────────────────────────────
+// â”€â”€ sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function FormCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -1827,7 +1877,7 @@ function FormCard({ title, children }: { title: string; children: React.ReactNod
   );
 }
 
-// ── utilities ──────────────────────────────────────────────────────────────
+// â”€â”€ utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function statusBadgeStyle(status: string) {
   switch (status) {
@@ -1838,7 +1888,7 @@ function statusBadgeStyle(status: string) {
   }
 }
 
-// ── styles ─────────────────────────────────────────────────────────────────
+// â”€â”€ styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#05080b" },
@@ -1882,6 +1932,14 @@ const s = StyleSheet.create({
   statusLoading: { color: "#748089", textAlign: "center", marginTop: 10 },
   errorBox: { backgroundColor: "rgba(248,113,113,0.1)", borderRadius: 12, padding: 12, marginTop: 10, borderWidth: 1, borderColor: "rgba(248,113,113,0.3)" },
   errorText: { color: "#f87171", fontSize: 14, lineHeight: 20 },
+  infoBox: { backgroundColor: "rgba(119,199,162,0.1)", borderRadius: 12, padding: 12, marginTop: 10, borderWidth: 1, borderColor: "rgba(119,199,162,0.3)" },
+  infoText: { color: "#77c7a2", fontSize: 14, lineHeight: 20 },
+  serverBox: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" },
+  serverLabel: { color: "#93b9ac", fontSize: 12, fontWeight: "700", marginBottom: 8 },
+  serverInput: { backgroundColor: "#0b0f13", borderRadius: 12, minHeight: 46, paddingHorizontal: 12, color: "#f4f4ef", fontSize: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", marginBottom: 8 },
+  serverActions: { flexDirection: "row", gap: 8 },
+  serverBtn: { flex: 1, borderRadius: 12, minHeight: 42, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(119,199,162,0.5)" },
+  serverBtnText: { color: "#77c7a2", fontSize: 13, fontWeight: "700" },
 
   // logged-in layout
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 14, backgroundColor: "#071a10", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)" },
@@ -2032,3 +2090,7 @@ const s = StyleSheet.create({
   sendBtnOff: { opacity: 0.4 },
   sendBtnText: { color: "#062014", fontWeight: "700", fontSize: 14 },
 });
+
+
+
+
